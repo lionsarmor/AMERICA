@@ -1,0 +1,18 @@
+# Private workspace data and the original private Sites checkout.
+/private/
+/data/
+/applications/
+/PROJECT_PLAN.md
+*.docx
+*.doc
+*.pdf
+*.sqlite
+*.sqlite3
+*.db
+.env
+.env.*
+!.env.example
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store

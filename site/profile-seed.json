@@ -1,0 +1,23 @@
+{
+  "name": "",
+  "email": "",
+  "phone": "",
+  "linkedin": "",
+  "github": "",
+  "portfolio": "",
+  "bases": [],
+  "skills": [],
+  "experience": [],
+  "education": {},
+  "resumes": {
+    "software": {
+      "name": "",
+      "url": ""
+    },
+    "technician": {
+      "name": "",
+      "url": ""
+    }
+  },
+  "provenance": "Import your profile and resumes or enter your details. Personal data stays in this browser."
+}
