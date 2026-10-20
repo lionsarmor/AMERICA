@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1]
 site = root / "site"
 seed = json.loads((site / "profile-seed.json").read_text())
 expected = {'James_Weeks_Technician_Resume.docx': 'fb8de06897fcbcc1dc4a384e22818bcd2341351543fcc3b23fa397045e316b62', 'James_Weeks_Software_Resume_Updated.docx': 'eaae0b5801ff7f7ddb76ce4d066045cc42efaf8754ac00f691c1de0681eb4429'}
-allowed = {"index.html", "styles.css", "app.js", "engine.js", "workbench.js", "question-library.js", "profile-seed.json", ".nojekyll", "404.html", "resumes"}
+allowed = {"index.html", "styles.css", "app.js", "engine.js", "workbench.js", "question-library.js", "companion.js", "answer-policy.js", "profile-seed.json", ".nojekyll", "404.html", "resumes"}
 assert all(p.name in allowed and not p.is_symlink() for p in site.iterdir()), "Unexpected public artifact"
 assert set(p.name for p in (site / "resumes").iterdir()) == set(expected), "Only the two requested originals may be hosted"
 for filename, digest in expected.items():

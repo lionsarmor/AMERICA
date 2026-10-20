@@ -18,10 +18,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Test private companion
+        run: |
+          npm ci --ignore-scripts --omit=optional
+          npm test
       - name: Check JavaScript
         run: |
           node --check site/app.js
           node --check site/question-library.js
+          node --check site/answer-policy.js
+          node --check site/companion.js
           node --check site/engine.js
           node --check site/workbench.js
       - name: Verify public artifact

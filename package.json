@@ -1,0 +1,29 @@
+{
+  "name": "jobbietree",
+  "version": "1.0.0",
+  "description": "A personal job-search workspace for US remote work and domestic or international travel contracts. Discover openings, rank pay and fit, prepare application packages, answer repeated questions once, and review before submitting on the employer site.",
+  "scripts": {
+    "start": "node companion/server.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check site/companion.js && node --check site/engine.js && node --check site/workbench.js && python3 scripts/check-public.py"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lionsarmor/AMERICA.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/lionsarmor/AMERICA/issues"
+  },
+  "homepage": "https://github.com/lionsarmor/AMERICA#readme",
+  "dependencies": {
+    "@openai/codex-sdk": "0.163.0"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  }
+}

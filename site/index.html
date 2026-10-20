@@ -9,7 +9,9 @@
   <link rel="stylesheet" href="styles.css">
   <script src="app.js" defer></script>
   <script src="question-library.js" defer></script>
+  <script src="answer-policy.js" defer></script>
   <script src="engine.js" defer></script>
+  <script src="companion.js" defer></script>
   <script src="workbench.js" defer></script>
 </head>
 <body>
@@ -28,6 +30,7 @@
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 9 4v6c0 6-9 10-9 10S3 18 3 12V6z"/><path d="m8 12 3 3 5-6"/></symbol>
     <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M3 6h5m4 0h9M3 18h11m4 0h3"/><circle cx="10" cy="6" r="2"/><circle cx="16" cy="18" r="2"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7Z"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
@@ -45,6 +48,7 @@
       <button class="nav-item" data-view="archive"><svg><use href="#i-archive"/></svg>Archive<span class="nav-count" id="archive-count">0</span></button>
       <button class="nav-item" data-view="profile"><svg><use href="#i-user"/></svg>My profile</button>
       <button class="nav-item live-only-nav" data-live-view="wizard" aria-label="Job Wizard"><svg><use href="#i-sliders"/></svg>Job Wizard<span class="nav-count" id="wizard-count">0</span></button>
+      <button class="nav-item live-only-nav" data-live-view="intelligence" aria-label="Intelligence"><svg><use href="#i-sparkle"/></svg>Intelligence</button>
       <button class="nav-item live-only-nav" data-live-view="sources" aria-label="Job sources"><svg><use href="#i-grid"/></svg>Job sources</button>
     </nav>
     <div class="sidebar-divider"></div>
@@ -90,7 +94,7 @@
         <div class="sample-notice"><span class="sample-dot"></span>Concept preview · All employers, jobs, pay, and policies below are fictional examples.</div>
         <div id="job-grid" class="job-grid"></div>
       </section>
-      <footer><span><strong>AMERICA</strong> &nbsp; Work well. Live fully.</span><button id="reset-demo">Reset demo</button><span>Saved answers stay in this browser · Employer-site submission</span></footer>
+      <footer><span><strong>AMERICA</strong> &nbsp; Work well. Live fully.</span><button id="reset-demo">Reset demo</button><span id="workspace-storage-note">Saved answers stay in this browser · Employer-site submission</span></footer>
     </main>
   </div>
   <dialog id="detail-dialog" class="detail-dialog"><div id="dialog-content"></div></dialog>

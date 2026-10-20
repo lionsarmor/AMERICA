@@ -57,6 +57,7 @@
       const f=resumes[track];if(!(f instanceof File)||f.size>10*1024*1024||!f.size)throw new Error('Each resume must be a nonempty file up to 10 MB.');
       p.resumes[track]={name:f.name,file:f,url:''};
     }
+    data.knowledgeRevision=(data.knowledgeRevision||1)+1;
     data.profile=p;
     for(const k of ['name','first_name','last_name','email','phone','linkedin','github','portfolio'])delete data.answers[k];
     refreshMatches();
@@ -414,12 +415,24 @@
     if(field.options?.length)return field.options.some(o=>String(o.value)===String(value));
     return true;
   }
+  function codexEvidenceCurrent(record){
+    if(!record?.evidence?.length)return false;
+    return record.evidence.every(e=>{
+      if(e.id.startsWith('resume:')){const [,track,index]=e.id.split(':');return data.profile.resumeEvidence?.[track]?.[index]===e.text;}
+      if(e.id.startsWith('fact:')){const key=e.id.slice(5),fact=resolveFact(key),q=K.get(key),saved=data.answers[key];return fact.known&&((q?.label||saved?.label||key)+'\n'+(Array.isArray(fact.value)?fact.value.join('; '):String(fact.value)))===e.text;}
+      if(e.id.startsWith('confirmed:'))for(const d of Object.values(data.drafts))for(const f of d.fields)if(e.id==='confirmed:'+d.jobId+':'+f.id&&d.fieldSources[f.id]==='application_edit'){
+        const label=value=>f.options?.find(o=>String(o.value)===String(value))?.label||String(value),value=Array.isArray(d.values[f.id])?d.values[f.id].map(label).join('; '):label(d.values[f.id]);return f.label+'\n'+(f.context||'')+'\nAnswer: '+value===e.text;
+      }
+      return false;
+    });
+  }
   function reconcileDraft(id){
     const draft=data.drafts[id],job=data.jobs[id];if(!draft||!job||draft.stage==='submitted')return;
     let changed=false;
     for(const field of draft.fields){
       const old=draft.values[field.id],s=draft.fieldSources[field.id];
       if(s==='application_edit'&&field.key!=='resume')continue;
+      if(s==='codex_draft'&&codexEvidenceCurrent(draft.ai?.fields?.[field.id]))continue;
       const next=autoValue(field,draft);
       if(old!==next){draft.values[field.id]=next;changed=true;}
       draft.fieldSources[field.id]=field.key&&resolveFact(field.key).known?resolveFact(field.key).source:field.key&&next!==''?'Resume/profile':'Unanswered';
@@ -453,14 +466,53 @@
     return [...groups.values()].sort((a,b)=>b.jobs.length-a.jobs.length);
   }
   function answer(key,value,scope='global'){
-    if(scope==='global'){data.answers[key]={value,label:key,source:'User answer',confirmedAt:Date.now()};for(const id of Object.keys(data.drafts))reconcileDraft(id);}
-    else {const [jobId,fieldId]=key.split('::');const d=data.drafts[jobId];if(!d||d.stage==='submitted')return false;if(d){d.values[fieldId]=value;d.fieldSources[fieldId]='application_edit';d.approved=false;d.version++;reconcileDraft(jobId);}}
+    if(scope==='global'){data.knowledgeRevision=(data.knowledgeRevision||1)+1;data.answers[key]={value,label:key,source:'User answer',confirmedAt:Date.now()};for(const id of Object.keys(data.drafts))reconcileDraft(id);}
+    else {const [jobId,fieldId]=key.split('::');const d=data.drafts[jobId];if(!d||d.stage==='submitted')return false;if(d){data.knowledgeRevision=(data.knowledgeRevision||1)+1;d.values[fieldId]=value;d.fieldSources[fieldId]='application_edit';d.approved=false;d.version++;for(const id of Object.keys(data.drafts))reconcileDraft(id);}}
     save();emit();
+  }
+  function applyCodexDraft(id,result,expected){
+    const d=data.drafts[id];
+    if(!d||data.archived[id]||d.stage==='submitted'||d.version!==expected.version||(data.knowledgeRevision||1)!==expected.knowledgeRevision||d.questionsNeedRefresh)return false;
+    const applied={};
+    for(const a of result.answers||[]){
+      const f=d.fields.find(f=>f.id===a.fieldId);
+      if(!f||f.incomplete||f.type==='input_file'||f.internal||window.ApplicantAnswerPolicy.restricted(f)||a.status!=='supported'||!a.evidence?.length||d.fieldSources[f.id]==='application_edit'||filled(f,d.values[f.id]))continue;
+      const value=f.type==='multi_value_multi_select'?a.values:a.values?.[0];if(!filled(f,value))continue;
+      d.values[f.id]=value;d.fieldSources[f.id]='codex_draft';applied[f.id]={reason:a.reason,evidence:a.evidence};
+    }
+    d.ai={at:Date.now(),knowledgeRevision:expected.knowledgeRevision,summary:result.summary,fields:applied,unresolved:(result.answers||[]).filter(a=>a.status!=='supported'),usage:result.usage};
+    d.approved=false;d.version++;d.history.push({at:Date.now(),event:'Codex drafted '+Object.keys(applied).length+' answers for your review'});reconcileDraft(id);save();emit();return true;
+  }
+  async function exportWorkspace(){
+    async function encode(value){
+      if(value instanceof Blob){const bytes=new Uint8Array(await value.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));return {$americaFile:1,name:value.name||'attachment',type:value.type,base64:btoa(binary)};}
+      if(Array.isArray(value))return Promise.all(value.map(encode));
+      if(value&&typeof value==='object')return Object.fromEntries(await Promise.all(Object.entries(value).map(async([key,v])=>[key,await encode(v)])));
+      return value;
+    }
+    return {format:'america-workspace-v1',exportedAt:Date.now(),data:await encode(structuredClone(data))};
+  }
+  async function importWorkspace(bundle){
+    if(bundle?.format!=='america-workspace-v1'||!bundle.data?.profile||!bundle.data.jobs||!bundle.data.drafts||!bundle.data.answers)throw new Error('Choose an AMERICA workspace backup.');
+    for(const d of Object.values(bundle.data.drafts))if(!bundle.data.jobs[d.jobId]||!Array.isArray(d.fields)||!d.values||!Array.isArray(d.missing))throw new Error('The backup contains an incomplete application.');
+    function decode(value){
+      if(value?.$americaFile===1){if(typeof value.base64!=='string'||value.base64.length>14*1024*1024)throw new Error('Invalid attachment in backup.');return new File([Uint8Array.from(atob(value.base64),c=>c.charCodeAt(0))],String(value.name),{type:String(value.type||'')});}
+      if(Array.isArray(value))return value.map(decode);
+      if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([key,v])=>{if(['__proto__','constructor','prototype'].includes(key))throw new Error('Invalid backup key.');return [key,decode(v)];}));
+      return value;
+    }
+    const restored=decode(bundle.data);
+    if(!Array.isArray(restored.profile.skills)||!Array.isArray(restored.profile.bases)||!restored.profile.resumes)throw new Error('The backup profile is incomplete.');
+    data=restored;data.settings||={autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12};
+    data.settings.codexAutoDraft??=true;
+    for(const [id,d] of Object.entries(data.drafts))if(d.stage!=='submitted')reconcileDraft(id);
+    await save();emit();return data;
   }
   function updateDraft(id,values,note,base){
     const d=data.drafts[id];if(!d||d.stage==='submitted')return;
-    for(const [field,value] of Object.entries(values))if(d.values[field]!==value){d.values[field]=value;d.fieldSources[field]='application_edit';}
-    d.note=note;d.base=base;d.approved=false;d.version++;d.requirementsChanged=false;reconcileDraft(id);save();emit();
+    let changed=false;for(const [field,value] of Object.entries(values))if(JSON.stringify(d.values[field])!==JSON.stringify(value)){d.values[field]=value;d.fieldSources[field]='application_edit';changed=true;}
+    if(changed)data.knowledgeRevision=(data.knowledgeRevision||1)+1;
+    d.note=note;d.base=base;d.approved=false;d.version++;d.requirementsChanged=false;for(const jobId of Object.keys(data.drafts))reconcileDraft(jobId);save();emit();
   }
   function approve(id){
     const d=data.drafts[id],j=data.jobs[id];if(!d||!j||data.archived[id]||d.stage==='submitted')return false;
@@ -479,5 +531,5 @@
     const groups=[[]];for(const token of orGroups){if(token.toUpperCase()==='OR')groups.push([]);else if(token.toUpperCase()!=='AND')groups.at(-1).push(token);}
     return groups.some(group=>group.every(token=>{const neg=token.startsWith('-'),term=(neg?token.slice(1):token).replace(/^"|"$/g,'').toLowerCase();return !term?true:neg?!hay.includes(term):hay.includes(term);}));
   }
-  window.JobEngine={init,get data(){return data;},get busy(){return busy;},subscribe(fn){listeners.push(fn);},sources:allSources,sourceEnabled,pull,prepare,prepareBest,save,emit,missingGroups,answer,updateDraft,approve,archive,restore,markSubmitted,importJob,setSource,addSource,matchesQuery,isBlocked,text,safeURL,normalize,parsePay,resumeURL,setProfile,importProfile,resolveFact,refreshQuestionSets,formFields,questionCatalog:()=>K.catalog,factDefinition:key=>factDefinitions[key]||null,fieldMeaning};
+  window.JobEngine={applyCodexDraft,exportWorkspace,importWorkspace,init,get data(){return data;},get busy(){return busy;},subscribe(fn){listeners.push(fn);},sources:allSources,sourceEnabled,pull,prepare,prepareBest,save,emit,missingGroups,answer,updateDraft,approve,archive,restore,markSubmitted,importJob,setSource,addSource,matchesQuery,isBlocked,text,safeURL,normalize,parsePay,resumeURL,setProfile,importProfile,resolveFact,refreshQuestionSets,formFields,questionCatalog:()=>K.catalog,factDefinition:key=>factDefinitions[key]||null,fieldMeaning};
 })();
