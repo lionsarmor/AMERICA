@@ -1,21 +1,22 @@
-"""Keep the Pages artifact free of bundled candidate records and resumes."""
+"""Validate the public app and the two owner-requested hosted resume originals."""
+import hashlib
 import json
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 site = root / "site"
 seed = json.loads((site / "profile-seed.json").read_text())
-assert all(not seed.get(k) for k in ("name", "email", "phone", "linkedin", "github", "portfolio", "skills", "bases", "experience", "education")), "Public seed must be empty"
-assert all(not r.get("name") and not r.get("url") and not r.get("file") for r in seed["resumes"].values()), "Public seed must not contain resume references"
-allowed = {"index.html", "styles.css", "app.js", "engine.js", "workbench.js", "profile-seed.json", ".nojekyll", "404.html"}
-assert all(p.is_file() and p.name in allowed for p in site.iterdir()), "Unexpected file or directory in public artifact"
-assert all(not p.is_symlink() for p in site.iterdir()), "Public artifact cannot contain symlinks"
-private_seed = root / "private/sites-source/dist/profile-seed.json"
-if private_seed.exists():
-    private = json.loads(private_seed.read_text())
-    for path in site.iterdir():
-        contents = path.read_text()
-        for key in ("name", "email", "phone", "linkedin", "portfolio"):
-            value = private.get(key)
-            assert not value or value.lower() not in contents.lower(), f"Private {key} found in {path.name}"
-print("Public artifact verified: empty profile seed; no bundled personal documents.")
+expected = {'James_Weeks_Technician_Resume.docx': 'fb8de06897fcbcc1dc4a384e22818bcd2341351543fcc3b23fa397045e316b62', 'James_Weeks_Software_Resume_Updated.docx': 'eaae0b5801ff7f7ddb76ce4d066045cc42efaf8754ac00f691c1de0681eb4429'}
+allowed = {"index.html", "styles.css", "app.js", "engine.js", "workbench.js", "profile-seed.json", ".nojekyll", "404.html", "resumes"}
+assert all(p.name in allowed and not p.is_symlink() for p in site.iterdir()), "Unexpected public artifact"
+assert set(p.name for p in (site / "resumes").iterdir()) == set(expected), "Only the two requested originals may be hosted"
+for filename, digest in expected.items():
+    path = site / "resumes" / filename
+    assert path.is_file() and not path.is_symlink(), "Resume must be an ordinary file"
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, f"Original resume changed: {filename}"
+assert set(seed["resumes"]) == {"software", "technician"}
+for record in seed["resumes"].values():
+    assert record["name"] in expected
+    assert record["url"] == "resumes/" + record["name"]
+assert not any(k in seed for k in ("answers", "applications", "drafts", "wizard", "archived")), "Browser records must not be bundled"
+print("Public artifact verified: both requested resume originals and matching profile; no browser records or private workspace files.")

@@ -28,9 +28,18 @@
   };
   let db, data, listeners=[], busy=false, saveTail=Promise.resolve();
   const resumeURLs=new WeakMap();
+  const bundledResumeVersion='2026-10-20-resumes-1';
+  const bundledResumePaths=new Set(['resumes/James_Weeks_Technician_Resume.docx','resumes/James_Weeks_Software_Resume_Updated.docx']);
   function resumeURL(resume){
     if(resume?.file instanceof Blob){if(!resumeURLs.has(resume.file))resumeURLs.set(resume.file,URL.createObjectURL(resume.file));return resumeURLs.get(resume.file);}
+    if(bundledResumePaths.has(resume?.url))return new URL(resume.url,document.baseURI).href;
     return '';
+  }
+  function refreshMatches(){
+    for(const job of Object.values(data.jobs)){
+      const normalized=normalize({...job,externalId:job.externalId},{id:job.sourceId,name:job.sourceName,kind:'manual'});
+      if(normalized)for(const key of ['fit','matchEvidence','overall'])job[key]=normalized[key];
+    }
   }
   async function setProfile(input,resumes={}){
     if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Choose an AMERICA profile JSON file.');
@@ -48,10 +57,7 @@
     }
     data.profile=p;
     for(const k of ['name','first_name','last_name','email','phone','linkedin','github','portfolio'])delete data.answers[k];
-    for(const job of Object.values(data.jobs)){
-      const normalized=normalize({...job,externalId:job.externalId},{id:job.sourceId,name:job.sourceName,kind:'manual'});
-      for(const key of ['fit','matchEvidence','overall'])job[key]=normalized[key];
-    }
+    refreshMatches();
     for(const [id,d] of Object.entries(data.drafts))if(d.stage!=='submitted'){d.approved=false;d.version++;reconcileDraft(id);}
     await save();emit();
   }
@@ -83,7 +89,26 @@
   async function init(){
     db=await new Promise((resolve,reject)=>{const request=indexedDB.open('america-workspace',1);request.onupgradeneeded=()=>request.result.createObjectStore('workspace');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
     data=await new Promise((resolve,reject)=>{const r=db.transaction('workspace').objectStore('workspace').get('state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
-    if(!data){const r=await fetch('profile-seed.json',{cache:'no-store'});if(!r.ok)throw new Error('Profile could not be loaded.');data={version:1,profile:await r.json(),answers:defaultAnswers,jobs:{},drafts:{},archived:{},saved:[],sourceState:{},customSources:[],settings:{autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12},runs:[],lastPull:null};await save();}
+    let seed;
+    if(!data||data.bundledResumeVersion!==bundledResumeVersion){
+      try{const r=await fetch('profile-seed.json',{cache:'no-store'});if(!r.ok)throw new Error('Profile could not be loaded.');seed=await r.json();}catch(error){if(!data)throw error;}
+    }
+    if(!data)data={version:1,profile:structuredClone(seed),answers:defaultAnswers,jobs:{},drafts:{},archived:{},saved:[],sourceState:{},customSources:[],settings:{autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12},runs:[],lastPull:null};
+    if(seed){
+      let changed=false;
+      const p=data.profile,blank=!p.name&&!p.email&&!(p.skills||[]).length&&!(p.experience||[]).length;
+      data.resumeLibrary=structuredClone(seed.resumes);
+      if(blank){data.profile={...structuredClone(seed),bases:p.bases?.length?p.bases:seed.bases};changed=true;}
+      // Preserve edited profiles, uploaded replacements, saved answers, and submitted snapshots.
+      const sameCandidate=data.profile.name===seed.name||data.profile.email===seed.email;
+      if(sameCandidate){
+        data.profile.resumes||={};
+        for(const track of ['software','technician'])if(!resumeURL(data.profile.resumes[track])){data.profile.resumes[track]=structuredClone(seed.resumes[track]);changed=true;}
+      }
+      if(changed){refreshMatches();for(const d of Object.values(data.drafts))if(d.stage!=='submitted'){d.approved=false;d.version++;}}
+      data.bundledResumeVersion=bundledResumeVersion;
+      await save();
+    }
     data.settings ||= {autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12};
     // Refresh derived matching fields after parser improvements without another network pull.
     for(const job of Object.values(data.jobs)){job.description=text(job.description);job.rotation=rotationExcerpt(job.description);job.familyScore=job.rotation?65:job.pto?50:null;setMarket(job);}

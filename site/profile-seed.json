@@ -1,23 +1,110 @@
 {
-  "name": "",
-  "email": "",
-  "phone": "",
-  "linkedin": "",
-  "github": "",
-  "portfolio": "",
-  "bases": [],
-  "skills": [],
-  "experience": [],
-  "education": {},
+  "name": "James Weeks",
+  "email": "jamesmweeksjr@gmail.com",
+  "phone": "(307) 212-2648",
+  "linkedin": "https://www.linkedin.com/in/jamesmweeksjr",
+  "github": "https://github.com/lionsarmor",
+  "portfolio": "https://roddy.world",
+  "bases": [
+    "Azle, TX",
+    "Rock Springs, WY",
+    "Casper, WY"
+  ],
+  "skills": [
+    "Fiber installation",
+    "Fusion splicing",
+    "Single-mode and ribbon fiber",
+    "OTDR testing",
+    "Optical power meter testing",
+    "Fault isolation",
+    "Copper termination",
+    "Structured cabling",
+    "MTP/MPO systems",
+    "Communications cutovers",
+    "Acceptance testing",
+    "Engineering drawings",
+    "JavaScript",
+    "Vue.js 2/3",
+    "Python",
+    "C",
+    "Bash",
+    "SQL",
+    "Node.js",
+    "Flask",
+    "Django",
+    "REST APIs",
+    "PostgreSQL",
+    "MySQL",
+    "Linux",
+    "Docker",
+    "Nginx",
+    "AWS",
+    "Git",
+    "Elasticsearch",
+    "Ollama"
+  ],
+  "experience": [
+    {
+      "role": "Engineering & Fiber Infrastructure Technician",
+      "organization_label": "Contract assignments: Parsons/FAA, ESPO Engineering Corporation, AFL/Oracle",
+      "start_month": "2026-01",
+      "end_month": "2026-10",
+      "legal_employer_mapping": null
+    },
+    {
+      "role": "Network & Systems Engineer",
+      "organization_label": "Cogent Communications",
+      "start_month": "2024-09",
+      "end_month": "2026-01"
+    },
+    {
+      "role": "Full-Stack Software Engineer",
+      "organization_label": "Comcast / XUMO projects",
+      "start_month": "2020-08",
+      "end_month": "2024-09",
+      "legal_employer_mapping": null
+    },
+    {
+      "role": "Software Engineer \u2014 Web Applications",
+      "organization_label": "Rock Full Stack / Rock Repair & Design",
+      "self_employed": true,
+      "start_month": "2019-01",
+      "end_month": "2020-08"
+    },
+    {
+      "role": "Software Engineer",
+      "organization_label": "White Rabot",
+      "start_month": "2018-01",
+      "end_month": "2020-01"
+    },
+    {
+      "role": "Infrastructure installation roles",
+      "start_year": 2010,
+      "end_year": 2018,
+      "employers": null
+    },
+    {
+      "role": "Owner & Software Developer",
+      "organization_label": "RODDY",
+      "start_month": null,
+      "ongoing_as_stated_in_resume": true
+    }
+  ],
+  "education": {
+    "institution": "Bristol Community College",
+    "location": "Fall River, MA",
+    "study": "Information Technology coursework",
+    "completed_degree": null
+  },
   "resumes": {
     "software": {
-      "name": "",
-      "url": ""
+      "name": "James_Weeks_Software_Resume_Updated.docx",
+      "url": "resumes/James_Weeks_Software_Resume_Updated.docx"
     },
     "technician": {
-      "name": "",
-      "url": ""
+      "name": "James_Weeks_Technician_Resume.docx",
+      "url": "resumes/James_Weeks_Technician_Resume.docx"
     }
   },
-  "provenance": "Import your profile and resumes or enter your details. Personal data stays in this browser."
+  "provenance": "Resume-derived contact, skills, and experience; confirmed available work bases. Both original resumes are hosted on this site. Review each application before handoff."
 }

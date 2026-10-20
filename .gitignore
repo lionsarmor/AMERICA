@@ -16,3 +16,7 @@ node_modules/
 __pycache__/
 *.pyc
 .DS_Store
+
+# Original resumes explicitly requested for the hosted personal app.
+!/site/resumes/James_Weeks_Technician_Resume.docx
+!/site/resumes/James_Weeks_Software_Resume_Updated.docx
