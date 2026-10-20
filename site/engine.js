@@ -247,7 +247,7 @@
   function semanticText(value){return String(value??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’‘]/g,"'").replace(/\bu[.\s]*s[.\s]*(?:a\.?)?\b/g,' united states ').replace(/\bamerican\b/g,'united states').replace(/[^a-z0-9%]+/g,' ').replace(/\s+/g,' ').trim();}
   function booleanAnswer(value){const v=semanticText(value);if(/^(yes|true|y|1)( |$)/.test(v)&&!/\b(but|only if|provided|assuming|subject to)\b/.test(v))return 'Yes';if(/^(no|false|n|0)( |$)/.test(v))return 'No';return null;}
   function resolveFact(key){
-    const record=data.answers[key];if(record&&record.value!==''&&record.value!==undefined&&record.value!==null)return {known:true,value:record.value,source:record.source==='Confirmed preference'?'Confirmed preference':'Saved answer',derivedFrom:[]};
+    const record=data.answers[key];if(record&&record.value!==''&&record.value!==undefined&&record.value!==null)return {known:true,value:record.value,source:record.source&&record.source!=='User answer'?record.source:'Saved answer',derivedFrom:[]};
     const citizen=booleanAnswer(data.answers.us_citizen?.value)==='Yes'||semanticText(data.answers.us_work_status?.value)==='united states citizen';
     const inferred=value=>({known:true,value,source:'Inferred from your confirmed US citizenship',derivedFrom:['us_citizen']});
     if(citizen){if(['us_citizen','us_work_authorization','us_unrestricted_work_authorization','us_work_without_sponsorship','us_citizen_or_resident','us_export_person','us_national'].includes(key))return inferred('Yes');if(key==='us_sponsorship')return inferred('No');if(key==='us_work_status')return inferred('US citizen');}
@@ -306,17 +306,18 @@
     return field.inverted&&fact?(fact==='Yes'?'No':'Yes'):fact;
   }
   function migrateAnswerKnowledge(){
-    if(data.answerKnowledgeVersion==='2026-10-20-v1')return;
+    if(data.answerKnowledgeVersion==='2026-10-20-v2')return;
     const candidates=new Map(),promotions=[];
-    for(const d of Object.values(data.drafts))if(d.stage!=='submitted')for(const f of d.fields)if(!f.internal){
-      const old=f.key;Object.assign(f,fieldMeaning(f.label,data.jobs[d.jobId],f.options||[]));
-      if(old!==f.key&&d.fieldSources[f.id]==='application_edit'&&['us_citizen','us_work_authorization','us_sponsorship','age_over_18','us_driver_license_valid'].includes(f.key)){
+    for(const d of Object.values(data.drafts))for(const original of d.fields)if(!original.internal){
+      const meaning=fieldMeaning(original.label,data.jobs[d.jobId],original.options||[]);
+      const f=d.stage==='submitted'?{...original,...meaning}:Object.assign(original,meaning);
+      if(d.fieldSources[f.id]==='application_edit'&&['us_citizen','us_work_authorization','us_sponsorship','age_over_18','us_driver_license_valid'].includes(f.key)){
         const value=fieldFactValue(f,d.values[f.id]);if(value){if(!candidates.has(f.key))candidates.set(f.key,new Set());candidates.get(f.key).add(value);promotions.push({d,f,value});}
       }
     }
     for(const [key,values] of candidates)if(values.size===1&&!data.answers[key])data.answers[key]={value:[...values][0],label:factDefinitions[key].label,source:'Learned from your previous application answer',confirmedAt:Date.now()};
-    for(const {d,f,value} of promotions)if(data.answers[f.key]?.value===value)d.fieldSources[f.id]='Saved answer';
-    data.answerKnowledgeVersion='2026-10-20-v1';
+    for(const {d,f,value} of promotions)if(d.stage!=='submitted'&&data.answers[f.key]?.value===value)d.fieldSources[f.id]='Saved answer';
+    data.answerKnowledgeVersion='2026-10-20-v2';
   }
   const baselineFields=()=>[
     {id:'name',label:'Full name',key:'name',required:true,type:'input_text'},
