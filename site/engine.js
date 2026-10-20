@@ -2,6 +2,8 @@
 (() => {
   'use strict';
   const HOUR = 3600000;
+  const K=window.ApplicantKnowledge;
+  const questionVersion='2026-10-20-full-questions-v1';
   const sources = [
     {id:'remotive',name:'Remotive',group:'Specialist boards',kind:'remotive',url:'https://remotive.com/api/remote-jobs?category=software-dev',home:'https://remotive.com/',interval:6*HOUR,enabled:true,note:'Public remote software feed. Listings may be delayed by 24 hours. Source attribution retained.'},
     {id:'jobicy',name:'Jobicy',group:'Specialist boards',kind:'jobicy',url:'https://jobicy.com/api/v2/remote-jobs?count=200',home:'https://jobicy.com/',interval:HOUR,enabled:true,note:'Remote roles from the last seven days. Paginated; the feed is not a complete historical catalog.'},
@@ -28,7 +30,7 @@
   };
   let db, data, listeners=[], busy=false, saveTail=Promise.resolve();
   const resumeURLs=new WeakMap();
-  const bundledResumeVersion='2026-10-20-resumes-1';
+  const bundledResumeVersion='2026-10-20-evidence-3';
   const bundledResumePaths=new Set(['resumes/James_Weeks_Technician_Resume.docx','resumes/James_Weeks_Software_Resume_Updated.docx']);
   function resumeURL(resume){
     if(resume?.file instanceof Blob){if(!resumeURLs.has(resume.file))resumeURLs.set(resume.file,URL.createObjectURL(resume.file));return resumeURLs.get(resume.file);}
@@ -102,6 +104,8 @@
       // Preserve edited profiles, uploaded replacements, saved answers, and submitted snapshots.
       const sameCandidate=data.profile.name===seed.name||data.profile.email===seed.email;
       if(sameCandidate){
+        data.profile.resumeEvidence||=structuredClone(seed.resumeEvidence);
+        for(const role of data.profile.experience||[]){const original=seed.experience.find(r=>r.role===role.role&&r.start_month===role.start_month);if(original)role.evidence_statements=structuredClone(original.evidence_statements);}
         data.profile.resumes||={};
         for(const track of ['software','technician'])if(!resumeURL(data.profile.resumes[track])){data.profile.resumes[track]=structuredClone(seed.resumes[track]);changed=true;}
       }
@@ -113,7 +117,7 @@
     migrateAnswerKnowledge();
     // Refresh derived matching fields after parser improvements without another network pull.
     for(const job of Object.values(data.jobs)){job.description=text(job.description);job.rotation=rotationExcerpt(job.description);job.familyScore=job.rotation?65:job.pto?50:null;setMarket(job);}
-    for(const id of Object.keys(data.drafts)){const d=data.drafts[id];if(d.stage!=='submitted'){addEligibilityQuestions(d.fields,data.jobs[id]);reconcileDraft(id);}}
+    for(const id of Object.keys(data.drafts)){const d=data.drafts[id];if(d.stage!=='submitted'){if(d.questionVersion!==questionVersion){d.questionsNeedRefresh=true;d.approved=false;d.version++;}addEligibilityQuestions(d.fields,data.jobs[id]);reconcileDraft(id);}}
     await save();emit();return data;
   }
   const allSources=()=>[...sources,...(data?.customSources||[])];
@@ -231,6 +235,7 @@
     return navigator.locks?navigator.locks.request('america-pull',{ifAvailable:true},lock=>lock?task():{busy:true}):task();
   }
   const factDefinitions={
+    ...Object.fromEntries(K.catalog.map(q=>[q.key,q])),
     us_citizen:{label:'Are you a US citizen?',options:['Yes','No']},
     us_work_authorization:{label:'Are you authorized to work in the United States?',options:['Yes','No']},
     us_sponsorship:{label:'Do you need employment visa sponsorship in the United States?',options:['Yes','No']},
@@ -246,14 +251,14 @@
   };
   function semanticText(value){return String(value??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’‘]/g,"'").replace(/\bu[.\s]*s[.\s]*(?:a\.?)?\b/g,' united states ').replace(/\bamerican\b/g,'united states').replace(/[^a-z0-9%]+/g,' ').replace(/\s+/g,' ').trim();}
   function booleanAnswer(value){const v=semanticText(value);if(/^(yes|true|y|1)( |$)/.test(v)&&!/\b(but|only if|provided|assuming|subject to)\b/.test(v))return 'Yes';if(/^(no|false|n|0)( |$)/.test(v))return 'No';return null;}
-  function resolveFact(key){
+  function resolveFact(key,job){
     const record=data.answers[key];if(record&&record.value!==''&&record.value!==undefined&&record.value!==null)return {known:true,value:record.value,source:record.source&&record.source!=='User answer'?record.source:'Saved answer',derivedFrom:[]};
     const citizen=booleanAnswer(data.answers.us_citizen?.value)==='Yes'||semanticText(data.answers.us_work_status?.value)==='united states citizen';
     const inferred=value=>({known:true,value,source:'Inferred from your confirmed US citizenship',derivedFrom:['us_citizen']});
     if(citizen){if(['us_citizen','us_work_authorization','us_unrestricted_work_authorization','us_work_without_sponsorship','us_citizen_or_resident','us_export_person','us_national'].includes(key))return inferred('Yes');if(key==='us_sponsorship')return inferred('No');if(key==='us_work_status')return inferred('US citizen');}
     if(key==='us_citizen_or_resident'&&booleanAnswer(data.answers.us_permanent_resident?.value)==='Yes')return {known:true,value:'Yes',source:'Inferred from your saved permanent-resident status',derivedFrom:['us_permanent_resident']};
     if(key==='us_work_without_sponsorship'&&booleanAnswer(data.answers.us_work_authorization?.value)==='Yes'&&booleanAnswer(data.answers.us_sponsorship?.value)==='No')return {known:true,value:'Yes',source:'Inferred from your saved work authorization and sponsorship answers',derivedFrom:['us_work_authorization','us_sponsorship']};
-    return {known:false,value:'',source:'Needs your answer',derivedFrom:[]};
+    return K.infer(key,{profile:data.profile,answers:data.answers,job})||{known:false,value:'',source:'Needs your answer',derivedFrom:[]};
   }
   function knownAnswer(key){return resolveFact(key).value;}
   function fieldMeaning(label,job,options=[]){
@@ -295,8 +300,8 @@
     if(/street|postal|zip code|address line|state of residence|country of residence/.test(l))return none();
     if(/current.*(city|location)|where do you (reside|live)|currently (reside|live)|residential location/.test(l))return result('current_location');
     if(/start date|available to start|when can you start/.test(l))return result('start_date');
-    if(/years/.test(l)){const skill=[...(data.profile.skills||[])].sort((a,b)=>b.length-a.length).find(s=>s.length>2&&l.includes(semanticText(s)));if(skill)return result('years_experience:'+skill.toLowerCase());}
-    return none();
+    if(/years/.test(l)&&!K.match(label,job,options)){const skill=[...(data.profile.skills||[])].sort((a,b)=>b.length-a.length).find(s=>s.length>2&&l.includes(semanticText(s)));if(skill)return result('years_experience:'+skill.toLowerCase());}
+    return K.match(label,job,options)||none();
   }
   function fieldFactValue(field,value){
     const selected=field.options?.find(o=>String(o.value)===String(value));let fact=booleanAnswer(selected?.label??value);
@@ -306,7 +311,7 @@
     return field.inverted&&fact?(fact==='Yes'?'No':'Yes'):fact;
   }
   function migrateAnswerKnowledge(){
-    if(data.answerKnowledgeVersion==='2026-10-20-v2')return;
+    if(data.answerKnowledgeVersion==='2026-10-20-v3')return;
     const candidates=new Map(),promotions=[];
     for(const d of Object.values(data.drafts))for(const original of d.fields)if(!original.internal){
       const meaning=fieldMeaning(original.label,data.jobs[d.jobId],original.options||[]);
@@ -317,7 +322,7 @@
     }
     for(const [key,values] of candidates)if(values.size===1&&!data.answers[key])data.answers[key]={value:[...values][0],label:factDefinitions[key].label,source:'Learned from your previous application answer',confirmedAt:Date.now()};
     for(const {d,f,value} of promotions)if(d.stage!=='submitted'&&data.answers[f.key]?.value===value)d.fieldSources[f.id]='Saved answer';
-    data.answerKnowledgeVersion='2026-10-20-v2';
+    data.answerKnowledgeVersion='2026-10-20-v3';
   }
   const baselineFields=()=>[
     {id:'name',label:'Full name',key:'name',required:true,type:'input_text'},
@@ -326,35 +331,62 @@
     {id:'linkedin',label:'LinkedIn',key:'linkedin',required:false,type:'input_text'},
     {id:'github',label:'GitHub',key:'github',required:false,type:'input_text'},
     {id:'resume',label:'Resume',key:'resume',required:true,type:'input_file'}
-  ];
+  ].map(field=>({...field,label:factDefinitions[field.key]?.label||field.label}));
   function addEligibilityQuestions(fields,job){
     if(!job)return;
     if(job.clearance==='existing'&&!fields.some(f=>f.key==='clearance_status'))fields.push({id:'internal_clearance',label:'Current security-clearance status (private eligibility check)',key:'clearance_status',required:true,internal:true,type:'input_text',options:['None','Secret','Top Secret','Other / verify','Unknown'].map(s=>({value:s,label:s}))});
   }
-  async function prepare(id){
+  function formFields(payload,job){
+    const result=[],dynamicFields=[],notes=[],ids=new Set();
+    const sets=[{questions:payload.questions||[],kind:'application',context:''},{questions:payload.location_questions||[],kind:'location',context:''}];
+    for(const block of payload.compliance||[])sets.push({questions:block.questions||[],kind:'compliance',context:text(block.description||'')});
+    if(payload.demographic_questions?.questions)sets.push({questions:payload.demographic_questions.questions,kind:'demographic',context:text(payload.demographic_questions.description||'')});
+    for(const section of sets)for(const [index,q] of section.questions.entries()){
+      const originalLabel=text(q.label||q.question||q.title||''),description=text(q.description||q.help_text||q.helpText||'');
+      let controls=q.fields||[];
+      if(!controls.length&&q.answer_options)controls=[{name:'demographic_'+q.id,type:q.type,values:q.answer_options.map(o=>({value:o.id,label:o.label}))}];
+      if(!controls.length){if(originalLabel||description)notes.push({label:originalLabel,text:description,kind:section.kind});continue;}
+      const visible=controls.filter(f=>f.type!=='input_hidden');dynamicFields.push(...controls.filter(f=>f.type==='input_hidden').map(f=>({id:f.name,kind:section.kind})));
+      const alternatives=visible.some(f=>f.type==='input_file')&&visible.some(f=>f.type==='textarea');
+      const selected=alternatives?[visible.find(f=>f.type==='input_file')]:visible;
+      for(const field of selected){
+        const id=field.name||section.kind+'_q'+index;if(ids.has(id))continue;ids.add(id);
+        const options=(field.values||[]).map(v=>({value:String(v.value),label:text(v.label)}));
+        const combined=[originalLabel,description].filter(Boolean).join('\n');
+        let meaning=fieldMeaning(combined,job,options);
+        if(!meaning.key)meaning=fieldMeaning(description||originalLabel,job,options);
+        if(!meaning.key)meaning=fieldMeaning(originalLabel,job,options);
+        if(section.kind==='location'&&/^location$/i.test(field.name))meaning={key:'current_location',inverted:false};
+        if(visible.length>1&&!alternatives&&['first_name','last_name','email','phone'].includes(field.name))meaning={key:field.name,inverted:false};
+        const content=K.completePrompt(originalLabel,description,meaning,text);
+        if(content.incomplete&&meaning.key&&factDefinitions[meaning.key]){content.questionText=factDefinitions[meaning.key].label;content.incomplete=false;content.promptOrigin='Expanded standard field label';}
+        const context=[content.context,section.context].filter(Boolean).filter((s,i,a)=>a.indexOf(s)===i).join('\n\n');
+        result.push({id,label:content.questionText,...content,context,...meaning,required:!!q.required,type:field.type||'input_text',options,alternatives:controls,questionSection:section.kind,sourceUrl:job.url});
+      }
+    }
+    return {fields:result,dynamicFields,notes};
+  }
+  async function refreshQuestionSets(){
+    for(const [id,d] of Object.entries(data.drafts))if(d.stage!=='submitted'&&!data.archived[id]&&d.questionsNeedRefresh)await prepare(id);
+  }
+  async function prepare(id,options={}){
     const j=data.jobs[id];if(!j||data.archived[id])return;
-    if(data.drafts[id]&&!data.drafts[id].requirementsChanged){if(data.drafts[id].stage!=='submitted')addEligibilityQuestions(data.drafts[id].fields,j);reconcileDraft(id);return data.drafts[id];}
-    const prior=data.drafts[id];
-    if(prior?.stage==='submitted')return prior;
-    let fields=baselineFields(),formStatus='Employer form still to verify',formVerified=false;
+    const prior=data.drafts[id];if(prior?.stage==='submitted')return prior;
+    if(prior&&!prior.requirementsChanged&&!prior.questionsNeedRefresh&&!options.forceQuestions){addEligibilityQuestions(prior.fields,j);reconcileDraft(id);return prior;}
+    let fields=baselineFields(),formStatus='Employer form still to verify',formVerified=false,rawForm=null,extras={dynamicFields:[],notes:[]};
     if(j.kind==='greenhouse'){
       try{
         const source=allSources().find(s=>s.id===j.sourceId);
-        const payload=await request(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(j.board)}/jobs/${encodeURIComponent(j.externalId)}?questions=true`,source);
-        if(Array.isArray(payload.questions)){
-          fields=payload.questions.flatMap((q,index)=>{
-            const field=(q.fields||[]).find(f=>f.type==='input_file')||q.fields?.[0]||{};
-            return [{id:field.name||'q'+index,label:text(q.label),...fieldMeaning(text(q.label),j,(field.values||[]).map(v=>({label:text(v.label)}))),required:!!q.required,type:field.type||'input_text',options:(field.values||[]).map(v=>({value:String(v.value),label:text(v.label)})),alternatives:q.fields||[]}];
-          });
-          // Location and compliance may be dynamic and are not silently assumed complete.
-          formVerified=true;formStatus='Published questions loaded. Consent, location validation, and dynamic questions still need employer-site review.';
-        }
-      }catch{formStatus='Could not load employer questions. Core application prepared; verify the full form on the employer site.';}
+        const payload=prior?.rawForm&&!prior.requirementsChanged&&!options.forceQuestions?prior.rawForm:await request(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(j.board)}/jobs/${encodeURIComponent(j.externalId)}?questions=true`,source);
+        if(!Array.isArray(payload.questions))throw new Error('Published form questions were not supplied.');
+        rawForm=Object.fromEntries(['questions','location_questions','compliance','demographic_questions','data_compliance'].filter(k=>payload[k]!==undefined).map(k=>[k,structuredClone(payload[k])]));
+        const parsed=formFields(payload,j);fields=parsed.fields;extras={dynamicFields:parsed.dynamicFields,notes:parsed.notes};
+        formVerified=true;formStatus='Complete published question text and help text loaded. Employer-site consent and dynamic location validation still need review.';
+      }catch{formStatus='The complete employer form could not be retrieved. Core fields are prepared; review the original form before sending.';}
     }
     addEligibilityQuestions(fields,j);
-    const draft={jobId:id,version:(prior?.version||0)+1,createdAt:prior?.createdAt||Date.now(),fields,values:{},fieldSources:{},formStatus,formVerified,approved:false,stage:'preparing',resumeTrack:j.track,base:prior?.base||data.profile.bases[0],note:prior?.note||'',history:[...(prior?.history||[]),{at:Date.now(),event:prior?'Published questions reloaded after listing changed':'Application package prepared'}]};
-    // Preserve application-specific edits only if the question and options are unchanged.
-    if(prior)for(const field of fields){const old=prior.fields.find(f=>f.id===field.id);if(old&&old.label===field.label&&JSON.stringify(old.options)===JSON.stringify(field.options)&&prior.fieldSources[field.id]==='application_edit'){draft.values[field.id]=prior.values[field.id];draft.fieldSources[field.id]='application_edit';if(prior.attachments?.[field.id]){draft.attachments||={};draft.attachments[field.id]=prior.attachments[field.id];}}}
+    const draft={jobId:id,version:(prior?.version||0)+1,createdAt:prior?.createdAt||Date.now(),fields,values:{},fieldSources:{},formStatus,formVerified,rawForm,formExtras:extras,questionVersion,questionsNeedRefresh:false,approved:false,stage:'preparing',resumeTrack:j.track,base:prior?.base||data.profile.bases[0],note:prior?.note||'',history:[...(prior?.history||[]),{at:Date.now(),event:prior?'Full employer questions refreshed':'Application package prepared'}]};
+    if(prior)for(const field of fields){const old=prior.fields.find(f=>f.id===field.id);if(old&&old.label===field.label&&(!old.description||old.description===field.description)&&JSON.stringify(old.options)===JSON.stringify(field.options)&&prior.fieldSources[field.id]==='application_edit'){draft.values[field.id]=prior.values[field.id];draft.fieldSources[field.id]='application_edit';if(prior.attachments?.[field.id]){draft.attachments||={};draft.attachments[field.id]=prior.attachments[field.id];}}}
     data.drafts[id]=draft;reconcileDraft(id);await save();emit();return draft;
   }
   function autoValue(field,draft){
@@ -367,7 +399,7 @@
       const match=label=>{
         const exact=field.options.filter(o=>semanticText(o.label)===semanticText(label));if(exact.length===1)return exact[0];
         if(k==='travel_percent'&&field.threshold===undefined){const numeric=field.options.filter(o=>/^\d{1,3}\s*%?$/.test(o.label.trim())&&parseFloat(o.label)===Number(label));if(numeric.length===1)return numeric[0];}
-        if(k==='us_work_status'&&semanticText(label)==='united states citizen'){const citizenship=field.options.filter(o=>/^(i am a |a )?united states citizen$/.test(semanticText(o.label)));if(citizenship.length===1)return citizenship[0];}
+        if(k==='us_work_status'&&semanticText(label)==='united states citizen'){const citizenship=field.options.filter(o=>/^(i am a |a )?united states citizen( or national)?$/.test(semanticText(o.label)));if(citizenship.length===1)return citizenship[0];}
         const binary=booleanAnswer(label);if(binary){const options=field.options.filter(o=>{const candidate=booleanAnswer(o.label)||(['us_citizen','us_work_status'].includes(k)?/^(i am a |a )?united states citizen$/.test(semanticText(o.label))?'Yes':/^(i am )?(not a|not|non) united states citizen$/.test(semanticText(o.label))?'No':null:null);return candidate===binary&&!/\b(but|only if|provided|assuming|subject to)\b/.test(semanticText(o.label));});if(options.length===1)return options[0];}
         return null;
       };
@@ -394,7 +426,7 @@
     }
     draft.missing=draft.fields.filter(f=>f.required&&(!filled(f,draft.values[f.id])||f.key==='resume'&&!resumeURL(data.profile.resumes[draft.resumeTrack])||f.type==='input_file'&&f.key!=='resume'&&!draft.attachments?.[f.id]||f.internal&&['Unknown','Other / verify'].includes(draft.values[f.id]))).map(f=>f.id);
     if(changed&&draft.approved){draft.approved=false;draft.version++;}
-    if(draft.stage!=='submitted')draft.stage=draft.missing.length?'needs_input':draft.approved?'approved_for_handoff':'ready_for_review';
+    if(draft.stage!=='submitted')draft.stage=draft.questionsNeedRefresh?'preparing':draft.missing.length?draft.missing.every(id=>draft.fields.find(f=>f.id===id)?.incomplete)?'needs_employer_review':'needs_input':draft.approved?'approved_for_handoff':'ready_for_review';
   }
   async function prepareBest(){
     const candidates=Object.values(data.jobs).filter(j=>j.fit>=data.settings.minimumFit&&!j.marketExcluded&&!data.archived[j.id]&&!isBlocked(j)).sort((a,b)=>b.overall-a.overall);
@@ -410,11 +442,12 @@
   function missingGroups(){
     const groups=new Map();
     for(const draft of Object.values(data.drafts)){
-      if(data.archived[draft.jobId]||draft.stage==='submitted')continue;
-      for(const f of draft.fields.filter(f=>draft.missing?.includes(f.id))){
-        const key=f.key||draft.jobId+'::'+f.id;
-        if(!groups.has(key)){const definition=f.key&&factDefinitions[f.key];groups.set(key,{key,reusable:!!f.key,label:definition?.label||f.label,type:definition?'input_text':f.type,options:definition?.options||f.options||[],explanation:f.explanation||'',jobs:[],fields:[]});}
-        const g=groups.get(key);g.jobs.push(draft.jobId);g.fields.push({jobId:draft.jobId,fieldId:f.id});
+      if(data.archived[draft.jobId]||draft.stage==='submitted'||draft.questionsNeedRefresh)continue;
+      for(const f of draft.fields.filter(f=>draft.missing?.includes(f.id)&&!f.incomplete)){
+        const reusable=!!f.key&&factDefinitions[f.key]?.scope!=='application';
+        const key=reusable?f.key:draft.jobId+'::'+f.id;
+        if(!groups.has(key)){const definition=reusable&&factDefinitions[f.key];groups.set(key,{key,reusable,label:definition?.label||f.label,type:definition?.type||f.type,options:definition?.options||f.options||[],explanation:f.explanation||'',sourceQuestions:[],jobs:[],fields:[]});}
+        const g=groups.get(key);g.sourceQuestions.push({jobId:draft.jobId,question:f.questionText||f.label,context:f.context||'',originalLabel:f.originalLabel||f.label,url:data.jobs[draft.jobId]?.url});g.jobs.push(draft.jobId);g.fields.push({jobId:draft.jobId,fieldId:f.id});
       }
     }
     return [...groups.values()].sort((a,b)=>b.jobs.length-a.jobs.length);
@@ -431,7 +464,7 @@
   }
   function approve(id){
     const d=data.drafts[id],j=data.jobs[id];if(!d||!j||data.archived[id]||d.stage==='submitted')return false;
-    reconcileDraft(id);if(d.missing.length||isBlocked(j)||d.requirementsChanged)return false;
+    reconcileDraft(id);if(d.missing.length||d.questionsNeedRefresh||isBlocked(j)||d.requirementsChanged)return false;
     d.approved=true;d.approvedVersion=d.version;d.approvedAt=Date.now();d.stage='approved_for_handoff';d.snapshot={version:d.version,job:structuredClone(j),values:structuredClone(d.values),note:d.note,base:d.base,resume:data.profile.resumes[d.resumeTrack],attachments:structuredClone(d.attachments||{})};d.history.push({at:Date.now(),event:'Approved package version '+d.version+' for manual handoff'});save();emit();return true;
   }
   function archive(id,reason){data.archived[id]={reason,at:Date.now()};const d=data.drafts[id];if(d){d.approved=false;if(d.stage!=='submitted')reconcileDraft(id);}save();emit();}
@@ -446,5 +479,5 @@
     const groups=[[]];for(const token of orGroups){if(token.toUpperCase()==='OR')groups.push([]);else if(token.toUpperCase()!=='AND')groups.at(-1).push(token);}
     return groups.some(group=>group.every(token=>{const neg=token.startsWith('-'),term=(neg?token.slice(1):token).replace(/^"|"$/g,'').toLowerCase();return !term?true:neg?!hay.includes(term):hay.includes(term);}));
   }
-  window.JobEngine={init,get data(){return data;},get busy(){return busy;},subscribe(fn){listeners.push(fn);},sources:allSources,sourceEnabled,pull,prepare,prepareBest,save,emit,missingGroups,answer,updateDraft,approve,archive,restore,markSubmitted,importJob,setSource,addSource,matchesQuery,isBlocked,text,safeURL,normalize,parsePay,resumeURL,setProfile,importProfile,resolveFact,factDefinition:key=>factDefinitions[key]||null,fieldMeaning};
+  window.JobEngine={init,get data(){return data;},get busy(){return busy;},subscribe(fn){listeners.push(fn);},sources:allSources,sourceEnabled,pull,prepare,prepareBest,save,emit,missingGroups,answer,updateDraft,approve,archive,restore,markSubmitted,importJob,setSource,addSource,matchesQuery,isBlocked,text,safeURL,normalize,parsePay,resumeURL,setProfile,importProfile,resolveFact,refreshQuestionSets,formFields,questionCatalog:()=>K.catalog,factDefinition:key=>factDefinitions[key]||null,fieldMeaning};
 })();

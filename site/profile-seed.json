@@ -49,45 +49,99 @@
       "organization_label": "Contract assignments: Parsons/FAA, ESPO Engineering Corporation, AFL/Oracle",
       "start_month": "2026-01",
       "end_month": "2026-10",
-      "legal_employer_mapping": null
+      "legal_employer_mapping": null,
+      "evidence_statements": [
+        "• Supported installation, integration, testing, and cutover of mission-critical communications and air traffic control infrastructure at FAA facilities nationwide.",
+        "• Installed equipment racks and communications hardware; terminated and tested copper and fiber cabling using engineering drawings, wiring diagrams, and installation documentation.",
+        "• Assisted with voice switch, recorder, and communications system migrations, hardware upgrades, troubleshooting, and acceptance testing.",
+        "• Coordinated with engineers, technicians, and FAA personnel during live operational cutovers to minimize disruption; maintained installation and test documentation under project quality and safety requirements.",
+        "• Performed single-mode and ribbon fiber fusion splicing for large-scale data center infrastructure supporting hyperscale cloud environments.",
+        "• Used OTDR and optical power meter testing to validate link integrity, identify defects, and verify installation quality.",
+        "• Installed and dressed backbone and distribution fiber in structured cabling systems, patch panels, and MTP/MPO configurations.",
+        "• Interpreted network diagrams and splice schematics; coordinated with engineering and commissioning teams to resolve installation issues and support infrastructure delivery."
+      ]
     },
     {
       "role": "Network & Systems Engineer",
       "organization_label": "Cogent Communications",
       "start_month": "2024-09",
-      "end_month": "2026-01"
+      "end_month": "2026-01",
+      "evidence_statements": [
+        "• Maintained long-haul and metro fiber infrastructure, including route inspections, regeneration sites, emergency splicing, fault isolation, and service restoration.",
+        "• Diagnosed attenuation, reflections, and optical signal degradation with OTDR, optical power meters, and other fiber test equipment.",
+        "• Designed Python tools to parse and analyze OTDR trace data, identify optical events, and estimate fault distance; used Bash and structured data parsing to support diagnostic reporting.",
+        "• Worked with NOC and field technicians to turn optical test data into actionable troubleshooting findings; documented faults, repairs, network performance, and corrective actions.",
+        "• Developed Python tools to parse and analyze OTDR trace files, identify attenuation and reflection events, and estimate fiber fault distances.",
+        "• Built repeatable diagnostic and reporting workflows with NOC and field technicians, translating optical data into actionable fault findings."
+      ]
     },
     {
       "role": "Full-Stack Software Engineer",
       "organization_label": "Comcast / XUMO projects",
       "start_month": "2020-08",
       "end_month": "2024-09",
-      "legal_employer_mapping": null
+      "legal_employer_mapping": null,
+      "evidence_statements": [
+        "• Developed applications for the XUMO TV platform using JavaScript, Lightning.js, and AWS; translated Figma designs into working interfaces and resolved application defects.",
+        "• Built internal tools and dashboards with Vue 3 and Python Flask/Django APIs, including user authentication, spreadsheet features, and API-driven data displays.",
+        "• Containerized UI applications with Docker and Nginx; collaborated with DevOps on log parsing, Elasticsearch dashboards, and operational visualizations.",
+        "• Worked with cross-functional teams through daily scrum, troubleshooting, and coordinated delivery of application changes.",
+        "• Developed a custom XUMO TV platform application using JavaScript, Lightning.js, and AWS; implemented Figma designs and resolved defects affecting application stability and behavior.",
+        "• Built internal applications with Vue 3, JavaScript, Bootstrap, and Python Flask/Django APIs, including user authentication, spreadsheet filters, theme switching, and API-driven data displays.",
+        "• Created Docker containers for UI applications served by Nginx; worked with DevOps to parse database product logs into dashboards and Elasticsearch visualizations.",
+        "• Collaborated with cross-functional teams through daily scrum, progress reporting, debugging, and coordinated delivery of application changes."
+      ]
     },
     {
-      "role": "Software Engineer \u2014 Web Applications",
+      "role": "Software Engineer — Web Applications",
       "organization_label": "Rock Full Stack / Rock Repair & Design",
       "self_employed": true,
       "start_month": "2019-01",
-      "end_month": "2020-08"
+      "end_month": "2020-08",
+      "evidence_statements": [
+        "• Delivered Vue and Node.js applications, REST APIs, database integrations, hosting, and ongoing maintenance for client projects.",
+        "• Built data-driven dashboards with PostgreSQL, Adonis, Tailwind CSS, and charting libraries; maintained source control and issue tracking with Git.",
+        "• Built reactive frontends and full-stack web applications using Vue, JavaScript, Node.js, and REST APIs; managed database integration, hosting, and application maintenance.",
+        "• Developed StonksElite with Vue, Adonis, PostgreSQL, and Lucid ORM, connecting backend data models and API responses to interactive tables and charts.",
+        "• Implemented custom designs with Tailwind CSS and integrated Chart.js/ApexCharts visualizations; used Git, issue tracking, NPM, Babel, and ESLint to maintain development workflows."
+      ]
     },
     {
       "role": "Software Engineer",
       "organization_label": "White Rabot",
       "start_month": "2018-01",
-      "end_month": "2020-01"
+      "end_month": "2020-01",
+      "evidence_statements": [
+        "• Developed the InsightX analytics interface using Vue 2, JavaScript, and a Python/Flask API with MySQL; integrated 15 customized charts and graphs.",
+        "• Troubleshot application behavior across routing, frontend data processing, API requests, and visualizations; used GitLab and NPM for development workflows.",
+        "• Developed data-intensive frontend applications for clients using Vue 2, JavaScript, reusable components, HTTP requests, and JSON.",
+        "• Contributed to InsightX across frontend architecture, routing, data processing, and integration with a Python/Flask API and MySQL database.",
+        "• Implemented 15 customized charts and graphs using D3.js, Chart.js, and ApexCharts; integrated TradingView with custom graph animations and functions.",
+        "• Used Vue Router, centralized application data, GitLab, and NPM to support a multi-page analytics application and ongoing feature development."
+      ]
     },
     {
       "role": "Infrastructure installation roles",
       "start_year": 2010,
       "end_year": 2018,
-      "employers": null
+      "employers": null,
+      "evidence_statements": []
     },
     {
       "role": "Owner & Software Developer",
       "organization_label": "RODDY",
       "start_month": null,
-      "ongoing_as_stated_in_resume": true
+      "ongoing_as_stated_in_resume": true,
+      "evidence_statements": [
+        "• Develop Desk Commander, a native Commander X16 graphical desktop with application launching, SD-card file management, Rolodex utilities, keyboard/mouse interaction, and a screensaver.",
+        "• Develop Weather Commander as part of a portfolio of retro-computing utilities and productivity applications.",
+        "• Developed I KNOW WHAT I SAW in C for PC, ESP32, and Ouya; developing DOON, an original Commander X16 side-scroller. Use AI-assisted development to iterate on game and software projects.",
+        "• Built a local-first conversational assistant with a retro BASIC-inspired terminal, combining natural-language chat with practical Linux commands and private, on-device model inference.",
+        "• Designed a distinctive personality: friendly, curious, technically capable, concise, and occasionally dry-witted, with an original retro-computer character and conversational style.",
+        "• Implemented file navigation, search, directory/location lookup, and system diagnostics for RAM, GPU, disk, and network status; integrate local Qwen models through Ollama.",
+        "• Designed the assistant identity and tool layer around a replaceable model backend; configured containerized Open WebUI and tested local inference on NVIDIA-equipped Linux systems.",
+        "• Develop and maintain the storefront and software/electronics catalog, with GitHub Actions deployment to GitHub Pages and custom-domain configuration."
+      ]
     }
   ],
   "education": {
@@ -106,5 +160,120 @@
       "url": "resumes/James_Weeks_Technician_Resume.docx"
     }
   },
-  "provenance": "Resume-derived contact, skills, and experience; confirmed available work bases. Both original resumes are hosted on this site. Review each application before handoff."
+  "provenance": "Resume-derived contact, skills, and experience; confirmed available work bases. Both original resumes are hosted on this site. Review each application before handoff.",
+  "resumeEvidence": {
+    "technician": [
+      "JAMES WEEKS",
+      "FIELD SERVICE & TELECOMMUNICATIONS TECHNICIAN",
+      "Rock Springs, WY | Nationwide travel / remote opportunities",
+      "(307) 212-2648 | jamesmweeksjr@gmail.com",
+      "linkedin.com/in/jamesmweeksjr | github.com/lionsarmor",
+      "PROFESSIONAL SUMMARY",
+      "Engineering technician with hands-on experience in FAA infrastructure modernization, hyperscale data center fiber deployment, and backbone network maintenance, backed by a software engineering career dating to 2018. Troubleshoots communications infrastructure, supports equipment integration and live cutovers, and builds Python tools for optical diagnostics. Combines field execution with Linux, scripting, APIs, and technical documentation to support complex systems from installation through fault resolution.",
+      "TECHNICAL CAPABILITIES",
+      "Telecom & field service: Fiber installation and fusion splicing; single-mode and ribbon fiber; OTDR and optical power meter testing; fault isolation and restoration; copper termination; structured cabling; racks and patch panels; MTP/MPO systems.",
+      "Hardware design: PCB design, 3D CAD modeling, electronics prototyping. Systems & commissioning: Equipment installation and integration; communications cutovers; acceptance testing; engineering drawings and wiring diagrams; technical documentation; network and electrical troubleshooting.",
+      "Software & automation: Python, Bash, JavaScript, SQL; Linux, Docker, Nginx, AWS, Git; REST APIs; Vue.js, Node.js, Flask/Django; PostgreSQL, MySQL; Elasticsearch and diagnostic dashboards.",
+      "PROFESSIONAL EXPERIENCE",
+      "Engineering & Fiber Infrastructure Technician | Contract Assignments",
+      "Nationwide infrastructure projects | Jan 2026 – Oct 2026",
+      "FAA Infrastructure — Parsons projects / ESPO Engineering Corporation",
+      "• Supported installation, integration, testing, and cutover of mission-critical communications and air traffic control infrastructure at FAA facilities nationwide.",
+      "• Installed equipment racks and communications hardware; terminated and tested copper and fiber cabling using engineering drawings, wiring diagrams, and installation documentation.",
+      "• Assisted with voice switch, recorder, and communications system migrations, hardware upgrades, troubleshooting, and acceptance testing.",
+      "• Coordinated with engineers, technicians, and FAA personnel during live operational cutovers to minimize disruption; maintained installation and test documentation under project quality and safety requirements.",
+      "Data Center Fiber Infrastructure — AFL / Oracle",
+      "• Performed single-mode and ribbon fiber fusion splicing for large-scale data center infrastructure supporting hyperscale cloud environments.",
+      "• Used OTDR and optical power meter testing to validate link integrity, identify defects, and verify installation quality.",
+      "• Installed and dressed backbone and distribution fiber in structured cabling systems, patch panels, and MTP/MPO configurations.",
+      "• Interpreted network diagrams and splice schematics; coordinated with engineering and commissioning teams to resolve installation issues and support infrastructure delivery.",
+      "JAMES WEEKS | TELECOM, SYSTEMS & SOFTWARE",
+      "Network & Systems Engineer | Cogent Communications",
+      "Sep 2024 – Jan 2026",
+      "• Maintained long-haul and metro fiber infrastructure, including route inspections, regeneration sites, emergency splicing, fault isolation, and service restoration.",
+      "• Diagnosed attenuation, reflections, and optical signal degradation with OTDR, optical power meters, and other fiber test equipment.",
+      "• Designed Python tools to parse and analyze OTDR trace data, identify optical events, and estimate fault distance; used Bash and structured data parsing to support diagnostic reporting.",
+      "• Worked with NOC and field technicians to turn optical test data into actionable troubleshooting findings; documented faults, repairs, network performance, and corrective actions.",
+      "Full-Stack Software Engineer | Comcast / XUMO projects",
+      "Aug 2020 – Sep 2024",
+      "• Developed applications for the XUMO TV platform using JavaScript, Lightning.js, and AWS; translated Figma designs into working interfaces and resolved application defects.",
+      "• Built internal tools and dashboards with Vue 3 and Python Flask/Django APIs, including user authentication, spreadsheet features, and API-driven data displays.",
+      "• Containerized UI applications with Docker and Nginx; collaborated with DevOps on log parsing, Elasticsearch dashboards, and operational visualizations.",
+      "• Worked with cross-functional teams through daily scrum, troubleshooting, and coordinated delivery of application changes.",
+      "Software Engineer — Web Applications | Rock Full Stack / Rock Repair & Design",
+      "Self-employed | Jan 2019 – Aug 2020",
+      "• Delivered Vue and Node.js applications, REST APIs, database integrations, hosting, and ongoing maintenance for client projects.",
+      "• Built data-driven dashboards with PostgreSQL, Adonis, Tailwind CSS, and charting libraries; maintained source control and issue tracking with Git.",
+      "Software Engineer | White Rabot",
+      "Jan 2018 – Jan 2020",
+      "• Developed the InsightX analytics interface using Vue 2, JavaScript, and a Python/Flask API with MySQL; integrated 15 customized charts and graphs.",
+      "• Troubleshot application behavior across routing, frontend data processing, API requests, and visualizations; used GitLab and NPM for development workflows.",
+      "EARLIER TECHNICAL EXPERIENCE",
+      "Infrastructure installation roles | 2010 – 2018: Installed, terminated, tested, and documented CAT5/6, fiber, and coax cabling. Built and organized MDF/IDF rooms, equipment racks, patch panels, and enclosures; interpreted technical drawings and floor plans.",
+      "ELECTRONICS & HARDWARE PROJECTS",
+      "Independent projects: PCB design and 3D CAD modeling for custom electronics, enclosures, and component fit. Develop hardware concepts alongside embedded systems and software, with a focus on prototyping and iterative design.",
+      "EDUCATION",
+      "Bristol Community College, Fall River, MA | Information Technology coursework"
+    ],
+    "software": [
+      "JAMES WEEKS",
+      "SOFTWARE ENGINEER | JAVASCRIPT • VUE.JS • PYTHON • LOCAL AI",
+      "Rock Springs, WY | Open to remote opportunities",
+      "(307) 212-2648 | jamesmweeksjr@gmail.com",
+      "github.com/lionsarmor | roddy.world | linkedin.com/in/jamesmweeksjr",
+      "PROFESSIONAL SUMMARY",
+      "Software engineer with professional development experience dating to 2018, spanning Comcast/XUMO applications, full-stack web development, and Python network diagnostics. Builds web applications, original games, retro desktop software, and local AI tools through RODDY. Combines JavaScript, Vue.js, APIs, and deployment experience with C, Python, practical LLM integration, and systems troubleshooting.",
+      "TECHNICAL SKILLS",
+      "Languages: JavaScript (ES6+), Python, C, Bash, SQL, HTML5, CSS3.",
+      "Applications: Vue.js 2/3, Node.js, Adonis, Flask, Django, Lightning.js; REST APIs, JSON, authentication, interactive dashboards, spreadsheet interfaces, data visualization.",
+      "Data & delivery: PostgreSQL, MySQL, Elasticsearch; Linux, Docker, Nginx, AWS, Git/GitLab, NPM; Figma, Tailwind CSS, Bootstrap, D3.js, Chart.js, ApexCharts; Agile/Scrum.",
+      "AI integration: Ollama, local Qwen models, Open WebUI, Python-based assistant interfaces, Linux inference environments. Delivery: GitHub Actions and GitHub Pages.",
+      "RODDY — SOFTWARE, GAMES & AI PORTFOLIO",
+      "Owner & Software Developer | roddy.world",
+      "Independent projects — ongoing | github.com/lionsarmor",
+      "Build original games, desktop applications, web software, and AI tools through an independent technology business. Combine modern web development with C, Python, retro platforms, and electronics prototyping.",
+      "Desk Commander & Weather Commander | Retro Desktop Software",
+      "• Develop Desk Commander, a native Commander X16 graphical desktop with application launching, SD-card file management, Rolodex utilities, keyboard/mouse interaction, and a screensaver.",
+      "• Develop Weather Commander as part of a portfolio of retro-computing utilities and productivity applications.",
+      "I KNOW WHAT I SAW & Other Original Games",
+      "• Developed I KNOW WHAT I SAW in C for PC, ESP32, and Ouya; developing DOON, an original Commander X16 side-scroller. Use AI-assisted development to iterate on game and software projects.",
+      "Personal AI Assistant | Python, Linux, Ollama & Qwen",
+      "• Built a local-first conversational assistant with a retro BASIC-inspired terminal, combining natural-language chat with practical Linux commands and private, on-device model inference.",
+      "• Designed a distinctive personality: friendly, curious, technically capable, concise, and occasionally dry-witted, with an original retro-computer character and conversational style.",
+      "• Implemented file navigation, search, directory/location lookup, and system diagnostics for RAM, GPU, disk, and network status; integrate local Qwen models through Ollama.",
+      "• Designed the assistant identity and tool layer around a replaceable model backend; configured containerized Open WebUI and tested local inference on NVIDIA-equipped Linux systems.",
+      "RODDY Web Storefront | Web Deployment & Product Catalog",
+      "• Develop and maintain the storefront and software/electronics catalog, with GitHub Actions deployment to GitHub Pages and custom-domain configuration.",
+      "PROFESSIONAL EXPERIENCE",
+      "Network & Systems Engineer | Cogent Communications",
+      "Sep 2024 – Jan 2026",
+      "• Developed Python tools to parse and analyze OTDR trace files, identify attenuation and reflection events, and estimate fiber fault distances.",
+      "• Built repeatable diagnostic and reporting workflows with NOC and field technicians, translating optical data into actionable fault findings.",
+      "Full-Stack Software Engineer | Comcast / XUMO projects",
+      "Aug 2020 – Sep 2024",
+      "• Developed a custom XUMO TV platform application using JavaScript, Lightning.js, and AWS; implemented Figma designs and resolved defects affecting application stability and behavior.",
+      "• Built internal applications with Vue 3, JavaScript, Bootstrap, and Python Flask/Django APIs, including user authentication, spreadsheet filters, theme switching, and API-driven data displays.",
+      "• Created Docker containers for UI applications served by Nginx; worked with DevOps to parse database product logs into dashboards and Elasticsearch visualizations.",
+      "• Collaborated with cross-functional teams through daily scrum, progress reporting, debugging, and coordinated delivery of application changes.",
+      "Software Engineer — Web Applications | Rock Full Stack / Rock Repair & Design",
+      "Self-employed | Jan 2019 – Aug 2020",
+      "• Built reactive frontends and full-stack web applications using Vue, JavaScript, Node.js, and REST APIs; managed database integration, hosting, and application maintenance.",
+      "• Developed StonksElite with Vue, Adonis, PostgreSQL, and Lucid ORM, connecting backend data models and API responses to interactive tables and charts.",
+      "• Implemented custom designs with Tailwind CSS and integrated Chart.js/ApexCharts visualizations; used Git, issue tracking, NPM, Babel, and ESLint to maintain development workflows.",
+      "Software Engineer | White Rabot",
+      "Jan 2018 – Jan 2020",
+      "• Developed data-intensive frontend applications for clients using Vue 2, JavaScript, reusable components, HTTP requests, and JSON.",
+      "• Contributed to InsightX across frontend architecture, routing, data processing, and integration with a Python/Flask API and MySQL database.",
+      "• Implemented 15 customized charts and graphs using D3.js, Chart.js, and ApexCharts; integrated TradingView with custom graph animations and functions.",
+      "• Used Vue Router, centralized application data, GitLab, and NPM to support a multi-page analytics application and ongoing feature development.",
+      "RECENT INFRASTRUCTURE CONTRACTS",
+      "Engineering & Fiber Infrastructure Technician | Parsons/FAA &AFL/Oracle",
+      "Jan 2026 – Oct 2026",
+      "Supported FAA communications installation, testing, and live cutovers, plus AFL data center fiber deployment. Used engineering drawings, OTDR diagnostics, and documented verification procedures to troubleshoot and validate mission-critical infrastructure.",
+      "ADDITIONAL TECHNICAL PROJECTS",
+      "Independent electronics projects involving PCB design, 3D CAD modeling, custom enclosures, and embedded systems concepts. Apply software development and systems troubleshooting to hardware prototyping and iterative design.",
+      "EDUCATION",
+      "Bristol Community College, Fall River, MA | Information Technology coursework"
+    ]
+  }
 }

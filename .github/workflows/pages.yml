@@ -21,6 +21,7 @@ jobs:
       - name: Check JavaScript
         run: |
           node --check site/app.js
+          node --check site/question-library.js
           node --check site/engine.js
           node --check site/workbench.js
       - name: Verify public artifact
