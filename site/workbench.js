@@ -6,7 +6,7 @@
   const dom=s=>document.querySelector(s);
   const ago=t=>!t?'Never':new Intl.DateTimeFormat(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(t));
   const money=n=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);
-  const titles={opportunities:['Prepared for you','The strongest matches, with your application package already started.'],discovered:['The search behind your shortlist','Live discoveries and imported jobs. Prepare any opportunity you want to pursue.'],saved:['Worth keeping close','Saved opportunities and their preparation status.'],review:['Ready for your review','See the actual answers, selected resume, missing details, and submission route.'],applications:['Your application journey','Approved packages and submissions you have confirmed.'],archive:['Out of the way. Still on record.','Your archive survives refreshes and repeated discovery.'],profile:['Your profile, working for you','Resume-backed facts stay separate from answers you have confirmed.'],sources:['A wider net. A clearer picture.','Major boards, specialist sources, and direct employers—with honest coverage.'],wizard:['Answer once. Move more applications forward.','The Job Wizard groups repeated questions and remembers answers in the right context.']};
+  const titles={opportunities:['Prepared for you','The strongest matches, with your application package already started.'],discovered:['The search behind your shortlist','Live discoveries and imported jobs. Prepare any opportunity you want to pursue.'],saved:['Worth keeping close','Saved opportunities and their preparation status.'],review:['Ready for your review','See the actual answers, selected resume, missing details, and submission route.'],applications:['Your application journey','Approved packages and submissions you have confirmed.'],archive:['Out of the way. Still on record.','Your archive survives refreshes and repeated discovery.'],profile:['Your profile, working for you','Resume-backed facts stay separate from answers you have confirmed.'],sources:['A wider net. A clearer picture.','Major boards, specialist sources, and direct employers—with honest coverage.'],answers:['All your answers','Review your profile, reusable answers, and every prepared application.'],wizard:['Answer once. Move more applications forward.','The Job Wizard groups repeated questions and remembers answers in the right context.']};
   function button(action,label,id='',primary=false){return `<button class="${primary?'primary':'secondary'}-button" data-live-action="${action}" ${id?`data-id="${esc(id)}"`:''}>${label}</button>`;}
   function modal(label,body,footer=''){openModal(label,body,footer);document.querySelector('#detail-dialog').setAttribute('aria-label',label);}
   function liveJobs(){return Object.values(E.data.jobs);}
@@ -38,7 +38,7 @@
   }
   function render(){
     if(!ready||!active)return;
-    dom('.app').classList.toggle('wizard-view',tab==='wizard');
+    dom('.app').classList.toggle('wizard-view',['wizard','answers'].includes(tab));
     const d=E.data,jobs=liveJobs(),notArchived=jobs.filter(j=>!d.archived[j.id]),drafts=Object.values(d.drafts).filter(a=>!d.archived[a.jobId]),missing=E.missingGroups();
     document.querySelectorAll('.nav-item').forEach(b=>{const selected=(b.dataset.liveView||b.dataset.view)===tab;b.classList.toggle('active',selected);if(selected)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
     dom('#breadcrumb-current').textContent=tab==='opportunities'?'Prepared opportunities':tab==='wizard'?'Job Wizard':titles[tab][0];
@@ -54,7 +54,7 @@
     const unseen=wizardQuestions().filter(q=>q.required&&wizardState().seen[q.id]!==q.fingerprint).length;
     alert.innerHTML=`<div>${icon('sliders')}<div><strong>${unseen?unseen+' new question'+(unseen===1?'':'s')+' from your job matches':missing.length+' question'+(missing.length===1?'':'s')+' waiting for you'}.</strong><p>A quick chat with your Job Wizard can move several applications forward.</p></div></div><button class="primary-button" data-live-view="wizard">Open Job Wizard ${icon('arrow')}</button>`;
     if(!d.profile.name){alert.innerHTML=`<div>${icon('user')}<div><strong>Make AMERICA work for you.</strong><p>Import your local profile and resumes to prepare applications and rank matches.</p></div></div><button class="primary-button" data-live-action="import-profile">Import my profile ${icon('arrow')}</button><button class="secondary-button" data-live-action="edit-profile">Set up manually</button>`;}
-    if(tab==='sources'){renderSources();return;}if(tab==='wizard'){renderWizard();return;}if(tab==='profile'){renderProfile();return;}
+    if(tab==='sources'){renderSources();return;}if(tab==='wizard'){renderWizard();return;}if(tab==='answers'){renderAnswers();return;}if(tab==='profile'){renderProfile();return;}
     const list=filtered(),slice=list.slice(0,page*limit);
     const queueStats=tab==='review'?`<div class="queue-stats"><span><b>${drafts.filter(a=>a.stage==='ready_for_review').length}</b> Ready for review</span><span><b>${drafts.filter(a=>a.stage==='needs_input').length}</b> Need your answers</span><span><b>${drafts.filter(a=>a.stage==='approved_for_handoff').length}</b> Approved for handoff</span></div>`:'';
     dom('#workbench').innerHTML=`<div class="section-heading"><div><h2>${titles[tab][0]}</h2><p>${titles[tab][1]}</p></div><div class="live-heading-actions">${tab==='discovered'?button('prepare-best','Prepare best matches'):''}${button('import','Import a job '+icon('plus'))}</div></div>${queueStats}
@@ -80,9 +80,9 @@
     dom('#pull-frequency').value=String(d.settings.intervalHours);
   }
   const generalQuestions=[
+    ['us_citizen','Are you a US citizen?',['Yes','No']],
     ['us_work_authorization','Are you authorized to work in the United States?',['Yes','No']],
     ['us_sponsorship','Do you need employment visa sponsorship in the United States?',['Yes','No']],
-    ['us_citizen','Are you a US citizen?',['Yes','No']],
     ['clearance_status','What is your current security-clearance status?',['None','Secret','Top Secret','Other / verify','Unknown']],
     ['current_location','What is your actual current residential city and state/country?',null],
     ['start_date','When are you available to start?',null],
@@ -90,21 +90,43 @@
   ];
   function questionInput(id,options,value='',type='text'){return options?.length?`<select id="${esc(id)}"><option value="">Choose an answer</option>${options.map(o=>typeof o==='string'?{value:o,label:o}:o).map(o=>`<option value="${esc(o.value)}" ${String(o.value)===String(value)?'selected':''}>${esc(o.label)}</option>`).join('')}</select>`:`<input id="${esc(id)}" type="${type}" value="${esc(value)}" maxlength="3000" placeholder="Your answer">`;}
   let wizardNote='',wizardSaving=false,wizardSaveTimer;
-  function wizardState(){return E.data.wizard||=( {seen:{},deferred:{},drafts:{},completed:{},history:{},current:null,mode:'pending'} );}
-  function wizardQuestions(){
-    const missing=E.missingGroups().map(g=>({...g,jobs:[...new Set(g.jobs)],required:true}));
-    const keys=new Set(missing.map(g=>g.key));
-    const optional=generalQuestions.filter(([key])=>!keys.has(key)&&!E.data.answers[key]).map(([key,label,options])=>({key,label,options:options||[],jobs:[],reusable:true,type:'input_text',required:false}));
-    return [...missing,...optional].map(g=>({...g,id:g.key,fingerprint:JSON.stringify([g.key,g.label,g.options,g.jobs])}));
+  function wizardState(){
+    const state=E.data.wizard||={seen:{},deferred:{},drafts:{},completed:{},history:{},current:null};
+    state.steps||={...state.history};state.backStack||=[];state.forwardStack||=[];
+    if(state.mode==='review'){state.mode='pending';state.current=null;}
+    return state;
   }
-  function wizardReviewQuestions(){
-    const state=wizardState(),list=generalQuestions.filter(([key])=>E.data.answers[key]).map(([key,label,options])=>({id:key,key,label,options:options||[],jobs:[],reusable:true,type:'input_text'}));
-    for(const q of Object.values(state.history))if(!list.some(g=>g.id===q.id)&&(q.reusable?E.data.answers[q.key]:E.data.drafts[q.jobs[0]]))list.push(q);
-    return list.map(q=>({...q,fingerprint:JSON.stringify([q.key,q.label,q.options,q.jobs])}));
+  const hasAnswer=value=>value!==undefined&&value!==null&&(Array.isArray(value)?value.length>0:String(value).trim()!=='');
+  function canEditWizardQuestion(q){return q&&(q.reusable||E.data.drafts[q.jobs[0]]?.stage!=='submitted'&&!!E.data.drafts[q.jobs[0]]);}
+  function advanceWizard(q){
+    const state=wizardState();if(state.backStack.at(-1)!==q.id)state.backStack.push(q.id);
+    state.backStack=state.backStack.slice(-200);state.current=null;state.revisiting=false;
+    while(state.forwardStack.length){const id=state.forwardStack.pop();if(id===null||canEditWizardQuestion(state.steps[id])){state.current=id;state.revisiting=id!==null;break;}}
+  }
+  function restoreWizardRoute(){
+    const state=wizardState(),route=state.editingRoute;if(!route)return;
+    Object.assign(state,route);delete state.editingRoute;
+  }
+  function allReusableQuestions(){
+    const state=wizardState(),list=new Map(generalQuestions.map(([key,label,options])=>[key,{id:key,key,label,options:options||[],jobs:[],reusable:true,type:'input_text'}]));
+    for(const q of [...Object.values(state.history),...E.missingGroups()])if(q.reusable)list.set(q.key,{...q,id:q.key});
+    for(const [key,answer] of Object.entries(E.data.answers))if(!list.has(key))list.set(key,{id:key,key,label:answer.label&&answer.label!==key?answer.label:key.replaceAll('_',' '),options:Array.isArray(answer.value)?answer.value:[],jobs:[],reusable:true,type:Array.isArray(answer.value)?'multi_value_multi_select':'input_text'});
+    for(const d of Object.values(E.data.drafts))for(const f of d.fields)if(f.key&&E.factDefinition(f.key)&&!list.has(f.key))list.set(f.key,{id:f.key,key:f.key,label:f.label,options:f.options||[],jobs:[],reusable:true,type:'input_text'});
+    return [...list.values()].map(q=>{const definition=E.factDefinition(q.key);if(definition)q={...q,label:definition.label,options:definition.options,type:'input_text'};return {...q,fingerprint:JSON.stringify([q.key,q.label,q.options,q.jobs])};});
+  }
+  function wizardQuestions(){
+    const missing=E.missingGroups().map(g=>({...g,jobs:[...new Set(g.jobs)],required:true,id:g.key}));
+    const keys=new Set(missing.map(g=>g.key));
+    const optional=generalQuestions.filter(([key])=>!keys.has(key)&&!E.resolveFact(key).known).map(([key,label,options])=>({id:key,key,label,options:options||[],jobs:[],reusable:true,type:'input_text',required:false}));
+    const foundation=missing.find(q=>q.key==='us_citizen')||optional.find(q=>q.key==='us_citizen');
+    const related=missing.filter(q=>['us_work_authorization','us_sponsorship','us_work_without_sponsorship','us_unrestricted_work_authorization','us_citizen_or_resident','us_work_status','us_export_person','us_national'].includes(q.key));
+    if(foundation&&related.length){foundation.jobs=[...new Set([...foundation.jobs,...related.flatMap(q=>q.jobs)])];foundation.explanation='Answer this once. Confirmed US citizenship also covers standard US work-authorization and employment-sponsorship questions.';}
+    const list=[...missing,...optional];if(foundation){const index=list.indexOf(foundation);list.splice(index,1);list.unshift(foundation);}
+    return list.map(g=>({...g,fingerprint:JSON.stringify([g.key,g.label,g.options,g.jobs])}));
   }
   function wizardValue(q){
     const state=wizardState();if(Object.hasOwn(state.drafts,q.id))return state.drafts[q.id];
-    let value=q.reusable?E.data.answers[q.key]?.value:E.data.drafts[q.jobs[0]]?.values[q.key.split('::')[1]];
+    let value=q.reusable?E.resolveFact(q.key).value:E.data.drafts[q.jobs[0]]?.values[q.key.split('::')[1]];
     if(value===undefined)return q.type==='multi_value_multi_select'?[]:'';
     const options=q.options.map(o=>typeof o==='string'?{value:o,label:o}:o);
     const match=v=>String(options.find(o=>String(o.value)===String(v)||o.label.toLowerCase()===String(v).toLowerCase())?.value??v);
@@ -123,16 +145,50 @@
     const el=form.querySelector('#wizard-answer');return el?.multiple?[...el.selectedOptions].map(o=>o.value).filter(Boolean):el?.value||'';
   }
   function renderWizard(force=false){
-    const state=wizardState(),all=wizardQuestions(),review=wizardReviewQuestions(),editing=state.mode==='review';
-    const deferred=all.filter(q=>state.deferred[q.id]===q.fingerprint),queue=editing?review:all.filter(q=>state.deferred[q.id]!==q.fingerprint);
-    const q=queue.find(q=>q.id===state.current)||queue[0],done=Object.keys(state.completed).length,total=done+all.length,progress=total?Math.round(done/total*100):100;
+    const state=wizardState(),all=wizardQuestions(),editing=!!state.editingRoute;
+    const deferred=all.filter(q=>state.deferred[q.id]===q.fingerprint),queue=all.filter(q=>state.deferred[q.id]!==q.fingerprint);
+    const selected=all.find(q=>q.id===state.current)||state.steps[state.current];
+    const q=(canEditWizardQuestion(selected)&&(all.some(v=>v.id===selected.id)||editing||state.revisiting)?selected:null)||queue[0],done=Object.keys(state.completed).length,total=done+all.length,progress=total?Math.round(done/total*100):100;
+    const backEnabled=editing||state.backStack.some(id=>canEditWizardQuestion(state.steps[id]));
+    const backButton=`<button class="secondary-button wizard-back" type="button" data-live-action="wizard-back" ${backEnabled?'':'disabled'}>← Back</button>`;
     const unchanged=!force&&q&&dom('#wizard-form')?.dataset.wizardId===q.id&&dom('#wizard-form')?.dataset.questionShape===JSON.stringify([q.label,q.type,q.options])&&dom('#wizard-form')?.dataset.editing===String(editing);
-    if(unchanged){dom('#wizard-remaining').textContent=all.length+' remaining';dom('.wizard-progress-meta>span').textContent=editing?'Editing saved answers':done+' answered';const bar=dom('.wizard-progress');bar.setAttribute('aria-valuemax',Math.max(total,1));bar.setAttribute('aria-valuenow',total?done:1);bar.firstElementChild.style.width=progress+'%';dom('.wizard-cheer').textContent=wizardNote||'You bring the experience. We’ll handle the repetition.';if(state.seen[q.id]!==q.fingerprint){state.seen[q.id]=q.fingerprint;E.save();}return;}
+    if(unchanged){dom('#wizard-remaining').textContent=all.length+' remaining';dom('.wizard-progress-meta>span').textContent=editing?'Editing an answer':done+' answered';const bar=dom('.wizard-progress');bar.setAttribute('aria-valuemax',Math.max(total,1));bar.setAttribute('aria-valuenow',total?done:1);bar.firstElementChild.style.width=progress+'%';dom('.wizard-cheer').textContent=wizardNote||'You bring the experience. We’ll handle the repetition.';dom('.wizard-back').disabled=!backEnabled;if(state.seen[q.id]!==q.fingerprint){state.seen[q.id]=q.fingerprint;E.save();}return;}
     state.current=q?.id||null;
-    if(q){state.seen[q.id]=q.fingerprint;E.save();}
-    const question=q?`<form id="wizard-form" class="wizard-step" data-wizard-id="${esc(q.id)}" data-fingerprint="${esc(q.fingerprint)}" data-question-shape="${esc(JSON.stringify([q.label,q.type,q.options]))}" data-editing="${editing}"><div class="wizard-question-meta"><span class="question-impact">${editing?'YOUR SAVED ANSWER':q.jobs.length?'FROM YOUR JOB MATCHES':'A LITTLE ABOUT YOU'}</span><span>${q.required?'Helps finish applications':'Optional · Helps future matches'}</span></div><h3 id="wizard-question">${esc(q.label)}</h3><p class="wizard-why">${q.jobs.length?`One answer helps ${q.jobs.length} application${q.jobs.length===1?'':'s'}. ${q.reusable?'We’ll remember it for matching questions.':'This answer stays with this application.'}`:'A quick answer now means fewer questions on future applications.'}</p>${q.jobs.length?`<div class="wizard-job-context">${q.jobs.slice(0,2).map(id=>`<span>${esc(E.data.jobs[id]?.company||'Application')}</span>`).join('')}${q.jobs.length>2?`<span>+${q.jobs.length-2} more</span>`:''}</div>`:''}${q.type==='input_file'?`<div class="wizard-attachment"><p>This step needs the actual document.</p>${q.key==='resume'?button('edit-profile','Choose a resume'):button('application','Attach in application',q.jobs[0])}</div>`:wizardControl(q)}<p id="wizard-error" class="wizard-error" role="alert"></p><div class="wizard-step-actions">${q.type!=='input_file'?`<button class="primary-button" type="submit">${editing?'Save changes':'Save & next'} ${icon('arrow')}</button>`:''}<button class="text-button" type="button" data-live-action="wizard-skip">${editing?'Next saved answer':'Skip for now'}</button></div><small class="wizard-privacy">You can change saved answers anytime. Employer-specific answers stay with that application.</small></form>`:`<div class="wizard-finish"><span class="wizard-finish-star" aria-hidden="true">✦</span><h3>${editing?'No saved answers yet.':deferred.length?'A good place to pause.':'You’re all caught up.'}</h3><p>${deferred.length?`${deferred.length} question${deferred.length===1?' is':'s are'} saved for later. Nothing has been guessed.`:editing?'Answer a question first, then come back here to edit it.':'We’ll bring you new questions when pulled jobs need something new. Your answers are ready for future applications.'}</p><div class="empty-actions">${deferred.length?button('wizard-retry','Continue skipped questions', '',true):''}<button class="${deferred.length?'secondary':'primary'}-button" data-live-view="review">Review applications ${icon('arrow')}</button></div></div>`;
-    dom('#workbench').innerHTML=`<div class="section-heading"><div><h2>Your Job Wizard</h2><p>One quick answer. Better applications.</p></div><button class="text-button" data-live-view="opportunities">Pause for now</button></div><div class="wizard-experience"><div class="wizard-guide"><div class="wizard-buddy" aria-hidden="true">✦<span>✧</span></div><div><strong>${editing?'Fine-tune what I know.':'Let’s make your next application easier.'}</strong><p>${editing?'Your saved answers, one at a time.':'A few small steps. More time for your life.'}</p></div></div><div class="wizard-progress-meta"><span>${editing?'Editing saved answers':done+' answered'}</span><span id="wizard-remaining">${all.length} remaining</span></div><div class="wizard-progress" role="progressbar" aria-label="Questions answered" aria-valuemin="0" aria-valuemax="${Math.max(total,1)}" aria-valuenow="${total?done:1}"><span style="width:${progress}%"></span></div><div class="wizard-cheer" role="status" aria-live="polite">${esc(wizardNote||'You bring the experience. We’ll handle the repetition.')}</div>${editing&&review.length?`<label class="wizard-review-picker">Edit a saved answer<select id="wizard-review-select">${review.map(r=>`<option value="${esc(r.id)}" ${r.id===q?.id?'selected':''}>${esc(r.label)}</option>`).join('')}</select></label>`:''}${question}<div class="wizard-bottom"><span>${deferred.length} skipped for later · New job questions arrive here</span><button class="text-button" data-live-action="wizard-mode">${editing?'Back to new questions':'Edit saved answers'+(review.length?' ('+review.length+')':'')}</button></div></div><p class="workspace-footnote wizard-terms">Questions about employer PTO, per diem, or project terms stay on the opportunity for follow-up.</p>`;
+    if(q){state.steps[q.id]=structuredClone(q);state.seen[q.id]=q.fingerprint;E.save();}
+    const singleChoice=q?.options.length&&q.type!=='multi_value_multi_select';
+    const hint=singleChoice?'Choose an answer to save it and move on.':q?.type==='textarea'?'Press Ctrl + Enter when you’re finished.':q?.type==='multi_value_multi_select'?'Choose all that apply, then continue.':'Press Enter when you’re finished, or move out of the answer field.';
+    const question=q?`<form id="wizard-form" class="wizard-step" data-wizard-id="${esc(q.id)}" data-question-shape="${esc(JSON.stringify([q.label,q.type,q.options]))}" data-editing="${editing}"><div class="wizard-question-meta"><span class="question-impact">${editing?'EDIT YOUR ANSWER':q.jobs.length?'FROM YOUR JOB MATCHES':'A LITTLE ABOUT YOU'}</span><span>${q.required?'Helps finish applications':'Helps future matches'}</span></div><h3 id="wizard-question">${esc(q.label)}</h3><p class="wizard-why">${q.explanation?esc(q.explanation):q.jobs.length?`One answer helps ${q.jobs.length} application${q.jobs.length===1?'':'s'}. ${q.reusable?'We’ll remember it for matching questions.':'This answer stays with this application.'}`:'A quick answer now means fewer questions on future applications.'}</p>${q.jobs.length?`<div class="wizard-job-context">${q.jobs.slice(0,2).map(id=>`<span>${esc(E.data.jobs[id]?.company||'Application')}</span>`).join('')}${q.jobs.length>2?`<span>+${q.jobs.length-2} more</span>`:''}</div>`:''}${q.type==='input_file'?`<div class="wizard-attachment"><p>This step needs the actual document.</p>${q.key==='resume'?button('edit-profile','Choose a resume'):button('application','Attach in application',q.jobs[0])}</div>`:wizardControl(q)}${q.type!=='input_file'?`<p class="wizard-input-hint">${hint}</p>`:''}<p id="wizard-error" class="wizard-error" role="alert"></p><div class="wizard-step-actions">${backButton}${q.type!=='input_file'?`<button class="primary-button" type="submit">${editing?'Save answer':'Continue'} ${icon('arrow')}</button>`:''}<button class="text-button" type="button" data-live-action="wizard-skip">${editing?'Cancel':'Skip for now'}</button></div><small class="wizard-privacy">Saved automatically as you answer. You can go back or edit your full answer list anytime.</small></form>`:`<div class="wizard-finish"><span class="wizard-finish-star" aria-hidden="true">✦</span><h3>${deferred.length?'A good place to pause.':'You’re all caught up.'}</h3><p>${deferred.length?`${deferred.length} question${deferred.length===1?' is':'s are'} saved for later. Nothing has been guessed.`:'We’ll bring you new questions when pulled jobs need something new. Your answers are ready for future applications.'}</p><div class="empty-actions">${backButton}${deferred.length?button('wizard-retry','Continue skipped questions','',true):''}<a class="primary-button" href="#answers" data-live-view="answers">See all answers ${icon('arrow')}</a></div></div>`;
+    dom('#workbench').innerHTML=`<div class="section-heading"><div><h2>Your Job Wizard</h2><p>One quick answer. Better applications.</p></div><div class="live-heading-actions"><a class="text-button" href="#answers" data-live-view="answers">All answers</a><button class="text-button" data-live-view="opportunities">Pause for now</button></div></div><div class="wizard-experience"><div class="wizard-guide"><div class="wizard-buddy" aria-hidden="true">✦<span>✧</span></div><div><strong>${editing?'Fine-tune what I know.':'Let’s make your next application easier.'}</strong><p>${editing?'Changes update your matching unsent applications.':'Pick an answer. We’ll take you to the next step.'}</p></div></div><div class="wizard-progress-meta"><span>${editing?'Editing an answer':done+' answered'}</span><span id="wizard-remaining">${all.length} remaining</span></div><div class="wizard-progress" role="progressbar" aria-label="Questions answered" aria-valuemin="0" aria-valuemax="${Math.max(total,1)}" aria-valuenow="${total?done:1}"><span style="width:${progress}%"></span></div><div class="wizard-cheer" role="status" aria-live="polite">${esc(wizardNote||'You bring the experience. We’ll handle the repetition.')}</div>${question}<div class="wizard-bottom"><span>${deferred.length} skipped for later · New job questions arrive here</span><a class="text-button" href="#answers" data-live-view="answers">View all answers ${icon('arrow')}</a></div></div><p class="workspace-footnote wizard-terms">Questions about employer PTO, per diem, or project terms stay on the opportunity for follow-up.</p>`;
     const heading=dom('#wizard-question');if(heading){heading.tabIndex=-1;heading.focus({preventScroll:true});}
+  }
+  function answerText(field,value){
+    if(!hasAnswer(value))return 'Not answered yet';
+    const label=v=>{const option=(field.options||[]).find(o=>typeof o==='string'?o===String(v):String(o.value)===String(v));return typeof option==='string'?option:option?.label??String(v);};
+    return Array.isArray(value)?value.map(label).join(', '):label(value);
+  }
+  function renderAnswers(){
+    const p=E.data.profile,questions=allReusableQuestions(),saved=questions.filter(q=>hasAnswer(E.resolveFact(q.key).value)).length;
+    const profileFields=[['Name',p.name],['Email',p.email],['Phone',p.phone],['LinkedIn',p.linkedin],['GitHub',p.github],['Portfolio',p.portfolio],['Available work bases',p.bases.join(' · ')],['Matching skills',p.skills.join(', ')],['Technician resume',p.resumes.technician?.name],['Software resume',p.resumes.software?.name]];
+    const applications=Object.values(E.data.drafts).map(d=>{const job=E.data.jobs[d.jobId];return `<details class="answers-application"><summary><span><strong>${esc(job.company)}</strong><br>${esc(job.title)}</span><span>${esc(stageText(d))}</span></summary><dl class="answers-list">${d.fields.map(f=>`<div class="answer-row"><dt>${esc(f.label)}${f.internal?'<small>Internal eligibility check</small>':''}</dt><dd>${esc(answerText(f,d.values[f.id]))}</dd></div>`).join('')}</dl>${d.stage==='submitted'?'<p class="answers-readonly">Submitted snapshot · Kept exactly as recorded</p>':button('application','Review or edit this application',d.jobId)}</details>`;}).join('');
+    dom('#workbench').innerHTML=`<div class="section-heading"><div><h2>All your answers</h2><p>Your full set of profile details, saved responses, and application answers.</p></div><a class="primary-button" href="#wizard" data-live-view="wizard">Return to wizard ${icon('arrow')}</a></div><div class="answers-page"><div class="answers-summary"><strong>${saved} answers ready</strong><span>${questions.length-saved} questions not answered yet · ${Object.keys(E.data.drafts).length} application packages</span></div><section class="answers-section"><div class="answers-section-heading"><div><h3>Your profile & resumes</h3><p>The facts used to start each application.</p></div>${button('edit-profile','Edit profile')}</div><dl class="answers-list">${profileFields.map(([label,value])=>`<div class="answer-row"><dt>${label}</dt><dd>${esc(value||'Not provided')}</dd></div>`).join('')}</dl></section><section class="answers-section"><div class="answers-section-heading"><div><h3>Reusable answers</h3><p>Updates flow into matching unsent drafts. Submitted records stay frozen.</p></div></div><dl class="answers-list">${questions.map(q=>`<div class="answer-row" data-answer-key="${esc(q.key)}"><dt>${esc(q.label)}<small>${esc(E.resolveFact(q.key).source)}</small></dt><dd>${esc(answerText(q,E.resolveFact(q.key).value))}</dd><button class="text-button" data-live-action="answer-edit" data-id="${esc(q.id)}">${hasAnswer(E.resolveFact(q.key).value)?'Edit':'Answer'}</button></div>`).join('')}</dl></section><section class="answers-section"><div class="answers-section-heading"><div><h3>Answers by application</h3><p>Inspect the complete answer set used for each employer.</p></div></div>${applications||'<p class="workspace-footnote">Prepared applications will appear here after your next job pull.</p>'}</section><p class="workspace-footnote">These saved responses stay in this browser. Your public starting profile and hosted resume originals are separate from your application history.</p></div>`;
+  }
+  async function submitWizardAnswer(form){
+    if(wizardSaving||form!==dom('#wizard-form'))return;
+    const state=wizardState(),q=state.steps[form.dataset.wizardId];if(!canEditWizardQuestion(q))return;
+    let value=readWizardValue(form);if(!hasAnswer(value)){dom('#wizard-error').textContent='Choose an answer, or skip this one for now.';return;}
+    if(q.reusable&&q.options.length){const label=v=>{const o=q.options.find(o=>typeof o==='string'?o===v:String(o.value)===String(v));return typeof o==='string'?o:o?.label||v;};value=Array.isArray(value)?value.map(label):label(value);}
+    wizardSaving=true;clearTimeout(wizardSaveTimer);
+    form.querySelectorAll('input,select,textarea,button').forEach(el=>el.disabled=true);
+    try{
+      const missingBefore=Object.values(E.data.drafts).reduce((n,d)=>n+(d.stage==='submitted'?0:d.missing.length),0);
+      E.answer(q.key,value,q.reusable?'global':'application');await E.save();
+      const covered=missingBefore-Object.values(E.data.drafts).reduce((n,d)=>n+(d.stage==='submitted'?0:d.missing.length),0);
+      state.completed[q.id]=true;state.history[q.id]=structuredClone(q);delete state.drafts[q.id];delete state.deferred[q.id];
+      const stillMissing=wizardQuestions().find(v=>v.id===q.id);if(stillMissing)state.deferred[q.id]=stillMissing.fingerprint;
+      wizardNote=stillMissing?'Saved. This one still needs clarification, so we’ll keep it for later.':covered>0?'Remembered. '+covered+' application question'+(covered===1?' was':'s were')+' filled automatically.':q.jobs.length?'Nice! Your answer updated '+q.jobs.length+' application'+(q.jobs.length===1?'':'s')+'.':'Got it. One less thing to fill in next time.';
+      const returning=!!state.editingRoute;if(returning)restoreWizardRoute();else advanceWizard(q);
+      await E.save();if(returning)switchTab('answers');else render();
+    }catch(error){const target=dom('#wizard-error');if(target)target.textContent='Could not save this answer. Please try again.';form.querySelectorAll('input,select,textarea,button').forEach(el=>el.disabled=false);}finally{wizardSaving=false;}
   }
   function renderProfile(){
     const p=E.data.profile;dom('#workbench').innerHTML=`<div class="section-heading"><div><h2>${titles.profile[0]}</h2><p>${titles.profile[1]}</p></div><div class="live-heading-actions">${button('import-profile','Import profile')}${button('edit-profile','Edit profile & resumes')}</div></div><div class="profile-panel"><h3>${esc(p.name||'Make this workspace yours')}</h3><p>${esc(p.email)} ${esc(p.phone)}</p><div class="details-grid"><div><span>Available work bases</span><strong>${esc(p.bases.join(' · ')||'Add your available locations')}</strong></div><div><span>Compensation</span><strong>$100k+ target · Extras assessed separately</strong></div><div><span>Skills for matching</span><strong>${p.skills.length} skills available</strong></div><div><span>Saved answers</span><strong>${Object.keys(E.data.answers).length} reusable facts and preferences</strong></div></div><h3>Your application attachments</h3><p>Your technician and software resumes are hosted here and ready to use. Uploading a replacement saves your selected version in this browser.</p><div class="resume-links">${Object.entries(p.resumes).map(([key,r])=>E.resumeURL(r)?`<a class="secondary-button" href="${esc(E.resumeURL(r))}" download="${esc(r.name)}">${icon('file')}${key==='technician'?'Technician':'Software'} resume ↓</a>`:`<span>${key==='technician'?'Technician':'Software'} resume · Not attached</span>`).join('')}</div><h3>Hosted originals</h3><div class="resume-links">${Object.entries(E.data.resumeLibrary||{}).map(([key,r])=>`<a class="secondary-button" href="${esc(E.resumeURL(r))}" download="${esc(r.name)}">${icon('file')}${key==='technician'?'Technician':'Software'} original ↓</a>`).join('')}</div><h3>Matching evidence</h3><div class="job-tags">${p.skills.map(s=>`<span>${esc(s)}</span>`).join('')}</div><div class="callout">${esc(p.provenance)} The original resumes and starting profile are available on this public site. Your saved answers, uploaded replacements, pulls, and drafts stay in this browser.</div><button class="primary-button" data-live-view="wizard">Open Job Wizard ${icon('arrow')}</button></div>`;
@@ -183,10 +239,16 @@
     modal('IMPORT FROM ANY JOB SOURCE',`<h2>Bring the good ones with you.</h2><p>Paste the original description from a major board, specialist site, recruiter, or employer. We’ll extract matching evidence and prepare a package.</p><form id="import-job-form"><label class="form-field">Job title<input id="import-title" required maxlength="250"></label><label class="form-field">Employer<input id="import-company" required maxlength="180"></label><label class="form-field">Original listing URL<input id="import-url" type="url" required placeholder="https://…"></label><label class="form-field">Location<input id="import-location" maxlength="200"></label><label class="form-field">Source name<input id="import-source" placeholder="Indeed, Roadtechs, recruiter…" maxlength="80"></label><label class="form-field">Job description<textarea id="import-description" required minlength="30" maxlength="22000"></textarea></label><button class="primary-button" type="submit">Import & prepare ${icon('arrow')}</button></form>`);
   }
   async function doPull(){if(!ready||E.busy)return;try{const run=await E.pull();if(run.busy)toast('A pull is already running in this browser.');else toast(run.results.length?`Pulled ${run.results.filter(r=>!r.error).length} sources. Prepared packages are in your review queue.`:'Sources are cooling down. Existing jobs and prepared applications are ready to review.');}catch(error){toast('Pull failed: '+error.message);}finally{render();}}
-  function switchTab(next){if(tab==='wizard'){clearTimeout(wizardSaveTimer);E.save();}tab=next;page=1;search='';role='all';pay='all';clearanceFilter='all';sourceFilter='all';activate(true);render();if(innerWidth<651||next==='wizard')dom('#workbench').scrollIntoView({behavior:'smooth'});}
+  function switchTab(next,updateURL=true){
+    if(!titles[next])return;if(tab==='wizard'){clearTimeout(wizardSaveTimer);E.save();}
+    tab=next;page=1;search='';role='all';pay='all';clearanceFilter='all';sourceFilter='all';
+    if(updateURL&&location.hash!=='#'+next)history.pushState(null,'','#'+next);
+    activate(true);if(innerWidth<651||['wizard','answers'].includes(next))dom('#workbench').scrollIntoView({behavior:'smooth'});
+  }
   function activate(live){active=live;dom('.board').hidden=live;dom('#workbench').hidden=!live;dom('#sync-dock').hidden=false;dom('#workspace-mode').textContent=live?'View design samples':'Return to live workspace';dom('.concept-badge').innerHTML=`<span></span>${live?'BROWSER WORKSPACE':'DESIGN SAMPLES'}`;document.querySelectorAll('.live-only-nav').forEach(el=>el.hidden=!live);if(!live){dom('.app').classList.remove('wizard-view');dom('#wizard-alert').hidden=true;window.render?.();}else render();}
   function schedule(){clearInterval(timer);timer=setInterval(()=>{if(ready&&E.data.settings.autoPull&&!document.hidden&&Date.now()-(E.data.lastPull||0)>=E.data.settings.intervalHours*3600000)doPull();},60000);}
   document.addEventListener('click',async event=>{
+    const radio=event.target.closest('#wizard-form input[type=radio]');if(radio?.checked){await submitWizardAnswer(radio.form);return;}
     const viewButton=event.target.closest('[data-live-view]');
     if(viewButton){event.preventDefault();event.stopImmediatePropagation();switchTab(viewButton.dataset.liveView);return;}
     if(event.target.closest('#workspace-mode')){activate(!active);return;}
@@ -198,9 +260,24 @@
     const sort=event.target.closest('[data-live-sort]');if(sort){sortBy=sort.dataset.liveSort;page=1;render();return;}
     const b=event.target.closest('[data-live-action]');if(!b)return;
     event.preventDefault();const {liveAction:a,id}=b.dataset;
-    if(a==='wizard-skip'){const state=wizardState(),editing=state.mode==='review',list=editing?wizardReviewQuestions():wizardQuestions(),q=list.find(q=>q.id===state.current);if(!q)return;if(editing){state.current=list[(list.findIndex(v=>v.id===q.id)+1)%list.length]?.id;}else{state.deferred[q.id]=q.fingerprint;state.current=null;wizardNote='Saved for later. Let’s try the next one.';}await E.save();renderWizard(true);return;}
-    if(a==='wizard-retry'){const state=wizardState();state.deferred={};state.current=null;state.mode='pending';wizardNote='Welcome back. Pick up wherever you like.';await E.save();renderWizard(true);return;}
-    if(a==='wizard-mode'){const state=wizardState();state.mode=state.mode==='review'?'pending':'review';state.current=null;wizardNote='';await E.save();renderWizard(true);return;}
+    if(a==='wizard-back'){
+      if(wizardSaving)return;const state=wizardState(),form=dom('#wizard-form');if(form)state.drafts[form.dataset.wizardId]=readWizardValue(form);
+      if(state.editingRoute){restoreWizardRoute();await E.save();switchTab('answers');return;}
+      let previous;while(state.backStack.length&&!previous){const id=state.backStack.pop();if(canEditWizardQuestion(state.steps[id]))previous=id;}
+      if(!previous)return;state.forwardStack.push(state.current);state.current=previous;state.revisiting=true;wizardNote='Your earlier answer is here. Change it, or continue.';await E.save();renderWizard(true);return;
+    }
+    if(a==='wizard-skip'){
+      if(wizardSaving)return;const state=wizardState(),q=state.steps[state.current];if(!q)return;
+      if(state.editingRoute){restoreWizardRoute();await E.save();switchTab('answers');return;}
+      if(wizardQuestions().some(v=>v.id===q.id))state.deferred[q.id]=q.fingerprint;
+      advanceWizard(q);wizardNote='Saved for later. Let’s try the next one.';await E.save();renderWizard(true);return;
+    }
+    if(a==='wizard-retry'){const state=wizardState();state.deferred={};state.current=null;state.forwardStack=[];wizardNote='Welcome back. Pick up wherever you like.';await E.save();renderWizard(true);return;}
+    if(a==='answer-edit'){
+      const q=allReusableQuestions().find(q=>q.id===id);if(!q)return;const state=wizardState();
+      state.editingRoute||={current:state.current,backStack:[...state.backStack],forwardStack:[...state.forwardStack],revisiting:!!state.revisiting};
+      state.current=q.id;state.steps[q.id]=q;delete state.drafts[q.id];wizardNote='Update this answer. We’ll take you back to your full list.';await E.save();switchTab('wizard');return;
+    }
     if(a==='pull'){await doPull();return;}
     if(a==='more'){page++;render();return;}
     if(a==='clear-search'){search='';role='all';pay='all';clearanceFilter='all';sourceFilter='all';render();return;}
@@ -224,13 +301,13 @@
     if(a==='import'){showImport();return;}
     if(a==='import-profile'){profileImport();return;}
     if(a==='add-source'){modal('ADD A PUBLIC EMPLOYER BOARD',`<h2>Follow an employer directly.</h2><p>Add a public Greenhouse, Lever, or Ashby board. A working feed provides job listings; it does not grant submission API access.</p><form id="add-source-form"><label class="form-field">Platform<select id="source-kind"><option value="greenhouse">Greenhouse</option><option value="lever">Lever</option><option value="ashby">Ashby</option></select></label><label class="form-field">Employer name<input id="source-name" required maxlength="100"></label><label class="form-field">Board identifier<input id="source-board" required pattern="[A-Za-z0-9_-]{1,80}" placeholder="company-board-name"></label><p>Use the board name from its public career URL, not an API key or a full URL. Browser access depends on the provider.</p><button class="primary-button" type="submit">Add board</button></form>`);return;}
-    if(a==='edit-profile'){const p=E.data.profile;modal('YOUR PROFILE & RESUMES',`<h2>Start with the right facts.</h2><form id="profile-edit-form">${['name','email','phone','linkedin','github','portfolio'].map(k=>`<label class="form-field">${esc(k)}<input name="${k}" value="${esc(p[k]||'')}" ${['name','email'].includes(k)?'required':''} ${k==='email'?'type="email"':''}></label>`).join('')}<label class="form-field">Skills (one per line)<textarea name="skills">${esc(p.skills.join('\n'))}</textarea></label><label class="form-field">Available work bases (one per line)<textarea name="bases">${esc(p.bases.join('\n'))}</textarea></label>${['technician','software'].map(track=>`<label class="form-field">${track==='technician'?'Technician':'Software'} resume<input id="resume-upload-${track}" type="file" accept=".pdf,.doc,.docx,.txt"><small>${esc(p.resumes[track]?.name||'No file attached')} · Select a file to replace it. Maximum 10 MB.</small></label>`).join('')}<p>Changes update unsent drafts and clear their approvals. Submitted snapshots remain unchanged.</p><button class="primary-button" type="submit">Save profile & resumes</button></form>`);}
+    if(a==='edit-profile'){const p=E.data.profile;modal('YOUR PROFILE & RESUMES',`<h2>Start with the right facts.</h2><form id="profile-edit-form" data-return-view="${esc(tab)}">${['name','email','phone','linkedin','github','portfolio'].map(k=>`<label class="form-field">${esc(k)}<input name="${k}" value="${esc(p[k]||'')}" ${['name','email'].includes(k)?'required':''} ${k==='email'?'type="email"':''}></label>`).join('')}<label class="form-field">Skills (one per line)<textarea name="skills">${esc(p.skills.join('\n'))}</textarea></label><label class="form-field">Available work bases (one per line)<textarea name="bases">${esc(p.bases.join('\n'))}</textarea></label>${['technician','software'].map(track=>`<label class="form-field">${track==='technician'?'Technician':'Software'} resume<input id="resume-upload-${track}" type="file" accept=".pdf,.doc,.docx,.txt"><small>${esc(p.resumes[track]?.name||'No file attached')} · Select a file to replace it. Maximum 10 MB.</small></label>`).join('')}<p>Changes update unsent drafts and clear their approvals. Submitted snapshots remain unchanged.</p><button class="primary-button" type="submit">Save profile & resumes</button></form>`);}
 
   },true);
   document.addEventListener('input',event=>{if(event.target.id==='live-search'){search=event.target.value;const pos=event.target.selectionStart;render();const input=dom('#live-search');input.focus();try{input.setSelectionRange(pos,pos);}catch{}}});
-  document.addEventListener('input',event=>{const form=event.target.closest('#wizard-form');if(!form)return;const state=wizardState();state.drafts[form.dataset.wizardId]=readWizardValue(form);clearTimeout(wizardSaveTimer);wizardSaveTimer=setTimeout(()=>E.save(),250);});
+  document.addEventListener('input',event=>{const form=event.target.closest('#wizard-form');if(!form||wizardSaving)return;const state=wizardState();state.drafts[form.dataset.wizardId]=readWizardValue(form);clearTimeout(wizardSaveTimer);wizardSaveTimer=setTimeout(()=>E.save(),250);});
   document.addEventListener('change',event=>{
-    if(event.target.id==='wizard-review-select'){wizardState().current=event.target.value;E.save();renderWizard(true);return;}
+    const wizardForm=event.target.closest('#wizard-form');if(wizardForm&&(event.target.type==='radio'||event.target.tagName==='SELECT'&&!event.target.multiple)){submitWizardAnswer(wizardForm);return;}
 
     const el=event.target;
     if(el.id==='live-role'){role=el.value;render();}if(el.id==='live-pay'){pay=el.value;render();}
@@ -243,27 +320,22 @@
   document.addEventListener('submit',async event=>{
     const form=event.target;
     if(form.id==='application-fields'){event.preventDefault();collectApplication(form.dataset.jobId);await E.save();application(form.dataset.jobId);toast('Application edits saved.');return;}
-    if(form.id==='wizard-form'){
-      event.preventDefault();if(wizardSaving)return;
-      const state=wizardState(),editing=state.mode==='review',list=editing?wizardReviewQuestions():wizardQuestions(),q=list.find(q=>q.id===form.dataset.wizardId);if(!q)return;
-      let value=readWizardValue(form);if(Array.isArray(value)?!value.length:!String(value).trim()){dom('#wizard-error').textContent='Choose an answer, or skip this one for now.';return;}
-      if(q.reusable&&q.options.length){const label=v=>{const o=q.options.find(o=>typeof o==='string'?o===v:String(o.value)===String(v));return typeof o==='string'?o:o?.label||v;};value=Array.isArray(value)?value.map(label):label(value);}
-      wizardSaving=true;clearTimeout(wizardSaveTimer);
-      try{state.completed[q.id]=true;state.history[q.id]=structuredClone(q);delete state.drafts[q.id];delete state.deferred[q.id];state.current=editing?list[(list.findIndex(v=>v.id===q.id)+1)%list.length]?.id:null;
-        E.answer(q.key,value,q.reusable?'global':'application');
-        const stillMissing=wizardQuestions().find(v=>v.id===q.id);if(stillMissing&&!editing)state.deferred[q.id]=stillMissing.fingerprint;
-        wizardNote=stillMissing&&!editing?'Saved. This one still needs clarification, so we’ll keep it for later.':q.jobs.length?'Nice! Your answer updated '+q.jobs.length+' application'+(q.jobs.length===1?'':'s')+'.':'Got it. One less thing to fill in next time.';
-        await E.save();render();
-      }catch(error){const target=dom('#wizard-error');if(target)target.textContent='Could not save this answer. Please try again.';}finally{wizardSaving=false;}
-      return;
-    }
+    if(form.id==='wizard-form'){event.preventDefault();await submitWizardAnswer(form);return;}
     if(form.id==='import-job-form'){event.preventDefault();try{const j=E.importJob({title:dom('#import-title').value,company:dom('#import-company').value,url:dom('#import-url').value,location:dom('#import-location').value,source:dom('#import-source').value,description:dom('#import-description').value});await E.prepare(j.id);await E.save();application(j.id);render();}catch(error){toast(error.message);}return;}
     if(form.id==='add-source-form'){event.preventDefault();try{E.addSource(dom('#source-kind').value,dom('#source-board').value.trim(),dom('#source-name').value);dialog.close();render();toast('Employer board added. Pull jobs to test and retrieve it.');}catch(error){toast(error.message);}return;}
     if(form.id==='profile-import-form'){event.preventDefault();const file=dom('#profile-import-file').files[0];try{if(!file||file.size>30*1024*1024)throw new Error('Choose a profile JSON file up to 30 MB.');await E.importProfile(JSON.parse(await file.text()));dialog.close();switchTab('profile');toast('Profile and resumes imported locally. Pull jobs for updated matches.');}catch(error){toast('Import failed: '+error.message);}return;}
-    if(form.id==='profile-edit-form'){event.preventDefault();try{const values=Object.fromEntries(new FormData(form));values.skills=values.skills.split('\n').map(s=>s.trim()).filter(Boolean);values.bases=values.bases.split('\n').map(s=>s.trim()).filter(Boolean);const resumes={};for(const track of ['software','technician']){const file=dom('#resume-upload-'+track).files[0];if(file)resumes[track]=file;}await E.setProfile(values,resumes);dialog.close();switchTab('profile');toast('Profile saved locally. Unsent drafts refreshed.');}catch(error){toast(error.message);}return;}
+    if(form.id==='profile-edit-form'){event.preventDefault();try{const values=Object.fromEntries(new FormData(form));values.skills=values.skills.split('\n').map(s=>s.trim()).filter(Boolean);values.bases=values.bases.split('\n').map(s=>s.trim()).filter(Boolean);const resumes={};for(const track of ['software','technician']){const file=dom('#resume-upload-'+track).files[0];if(file)resumes[track]=file;}await E.setProfile(values,resumes);dialog.close();switchTab(form.dataset.returnView==='answers'?'answers':'profile');toast('Profile saved locally. Unsent drafts refreshed.');}catch(error){toast(error.message);}return;}
 
   });
+  document.addEventListener('focusout',event=>{
+    const form=event.target.closest('#wizard-form');if(!form||wizardSaving||document.hidden)return;
+    if(!event.target.matches('#wizard-answer'))return;
+    const next=event.relatedTarget;if(next?.closest('button,a,input,select,textarea'))return;
+    if(hasAnswer(readWizardValue(form)))submitWizardAnswer(form);
+  });
+  document.addEventListener('keydown',event=>{if(event.target.matches('#wizard-form textarea')&&event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();submitWizardAnswer(event.target.form);}});
+  window.addEventListener('hashchange',()=>{if(ready){const next=location.hash.slice(1);switchTab(titles[next]?next:'opportunities',false);}});
   document.addEventListener('visibilitychange',()=>{if(ready&&!document.hidden&&E.data.settings.autoPull&&Date.now()-(E.data.lastPull||0)>=E.data.settings.intervalHours*3600000)doPull();});
   E.subscribe(()=>{if(ready&&!wizardSaving)render();});
-  E.init().then(async()=>{ready=true;activate(true);schedule();if(E.data.settings.autoPull&&Date.now()-(E.data.lastPull||0)>=E.data.settings.intervalHours*3600000)await doPull();}).catch(error=>{dom('#pull-status').textContent='Live workspace unavailable: '+error.message;dom('#pull-jobs-button').disabled=true;toast('Live storage could not open. Design samples remain available.');activate(false);});
+  E.init().then(async()=>{ready=true;tab=titles[location.hash.slice(1)]?location.hash.slice(1):'opportunities';activate(true);schedule();if(E.data.settings.autoPull&&Date.now()-(E.data.lastPull||0)>=E.data.settings.intervalHours*3600000)await doPull();}).catch(error=>{dom('#pull-status').textContent='Live workspace unavailable: '+error.message;dom('#pull-jobs-button').disabled=true;toast('Live storage could not open. Design samples remain available.');activate(false);});
 })();

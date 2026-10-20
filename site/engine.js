@@ -110,10 +110,11 @@
       await save();
     }
     data.settings ||= {autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12};
+    migrateAnswerKnowledge();
     // Refresh derived matching fields after parser improvements without another network pull.
     for(const job of Object.values(data.jobs)){job.description=text(job.description);job.rotation=rotationExcerpt(job.description);job.familyScore=job.rotation?65:job.pto?50:null;setMarket(job);}
     for(const id of Object.keys(data.drafts)){const d=data.drafts[id];if(d.stage!=='submitted'){addEligibilityQuestions(d.fields,data.jobs[id]);reconcileDraft(id);}}
-    emit();return data;
+    await save();emit();return data;
   }
   const allSources=()=>[...sources,...(data?.customSources||[])];
   const sourceEnabled=s=>s.kind!=='manual'&&s.kind!=='credential'&&(data.sourceState[s.id]?.enabled??s.enabled??true);
@@ -229,26 +230,93 @@
     };
     return navigator.locks?navigator.locks.request('america-pull',{ifAvailable:true},lock=>lock?task():{busy:true}):task();
   }
-  function knownAnswer(key){return data.answers[key]?.value??'';}
-  function fieldKey(label,job){
-    const l=label.toLowerCase();
-    const usContext=/\b(u\.?s\.?|united states)\b/.test(l)||/\bUSA\b|\bUS\b|United States/i.test(job?.location||'');
-    if(/first name/.test(l))return 'first_name';if(/last name/.test(l))return 'last_name';
-    if(/full name|^name$/.test(l))return 'name';if(/e.?mail/.test(l))return 'email';if(/phone|mobile/.test(l))return 'phone';
-    if(/linkedin/.test(l))return 'linkedin';if(/github/.test(l))return 'github';
-    if(/website|portfolio/.test(l))return 'portfolio';
-    if(/resume|résumé|\bcv\b/.test(l))return 'resume';
-    // Citizenship is deliberately separate from employment authorization.
-    if(/\b(u\.?s\.?|united states)\b.*citizen|citizen.*\b(u\.?s\.?|united states)\b/.test(l))return 'us_citizen';
-    if(usContext&&/(sponsor|sponsorship)/.test(l)&&/(visa|immigration|employment|work)/.test(l))return 'us_sponsorship';
-    if(usContext&&/(authorized|authorised|authorization|right to work|eligible to work)/.test(l))return 'us_work_authorization';
-    if(/current.*(city|location)|where do you (reside|live)|currently (reside|live)|residen(tial|ce)/.test(l))return 'current_location';
-    if(/start date|available to start|when can you start/.test(l))return 'start_date';
-    if(/years/.test(l)){
-      const skill=[...(data.profile.skills||[])].sort((a,b)=>b.length-a.length).find(s=>s.length>2&&l.includes(s.toLowerCase()));
-      if(skill)return 'years_experience:'+skill.toLowerCase();
+  const factDefinitions={
+    us_citizen:{label:'Are you a US citizen?',options:['Yes','No']},
+    us_work_authorization:{label:'Are you authorized to work in the United States?',options:['Yes','No']},
+    us_sponsorship:{label:'Do you need employment visa sponsorship in the United States?',options:['Yes','No']},
+    us_unrestricted_work_authorization:{label:'Can you work for any employer in the United States without immigration restrictions?',options:['Yes','No']},
+    us_work_without_sponsorship:{label:'Can you work in the United States without employment visa sponsorship?',options:['Yes','No']},
+    us_citizen_or_resident:{label:'Are you a US citizen or a lawful permanent resident?',options:['Yes','No']},
+    us_export_person:{label:'Do you qualify as a US person for US export-control purposes?',options:['Yes','No']},
+    us_national:{label:'Are you a US citizen or US national?',options:['Yes','No']},
+    us_work_status:{label:'What is your US work-authorization status?',options:['US citizen','Lawful permanent resident','Other / verify']},
+    age_over_18:{label:'Are you at least 18 years old?',options:['Yes','No']},
+    us_driver_license_valid:{label:'Do you hold a valid US driver’s license?',options:['Yes','No']},
+    travel_percent:{label:'What percentage of travel can you take during assignments?',options:[]}
+  };
+  function semanticText(value){return String(value??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[’‘]/g,"'").replace(/\bu[.\s]*s[.\s]*(?:a\.?)?\b/g,' united states ').replace(/\bamerican\b/g,'united states').replace(/[^a-z0-9%]+/g,' ').replace(/\s+/g,' ').trim();}
+  function booleanAnswer(value){const v=semanticText(value);if(/^(yes|true|y|1)( |$)/.test(v)&&!/\b(but|only if|provided|assuming|subject to)\b/.test(v))return 'Yes';if(/^(no|false|n|0)( |$)/.test(v))return 'No';return null;}
+  function resolveFact(key){
+    const record=data.answers[key];if(record&&record.value!==''&&record.value!==undefined&&record.value!==null)return {known:true,value:record.value,source:record.source==='Confirmed preference'?'Confirmed preference':'Saved answer',derivedFrom:[]};
+    const citizen=booleanAnswer(data.answers.us_citizen?.value)==='Yes'||semanticText(data.answers.us_work_status?.value)==='united states citizen';
+    const inferred=value=>({known:true,value,source:'Inferred from your confirmed US citizenship',derivedFrom:['us_citizen']});
+    if(citizen){if(['us_citizen','us_work_authorization','us_unrestricted_work_authorization','us_work_without_sponsorship','us_citizen_or_resident','us_export_person','us_national'].includes(key))return inferred('Yes');if(key==='us_sponsorship')return inferred('No');if(key==='us_work_status')return inferred('US citizen');}
+    if(key==='us_citizen_or_resident'&&booleanAnswer(data.answers.us_permanent_resident?.value)==='Yes')return {known:true,value:'Yes',source:'Inferred from your saved permanent-resident status',derivedFrom:['us_permanent_resident']};
+    if(key==='us_work_without_sponsorship'&&booleanAnswer(data.answers.us_work_authorization?.value)==='Yes'&&booleanAnswer(data.answers.us_sponsorship?.value)==='No')return {known:true,value:'Yes',source:'Inferred from your saved work authorization and sponsorship answers',derivedFrom:['us_work_authorization','us_sponsorship']};
+    return {known:false,value:'',source:'Needs your answer',derivedFrom:[]};
+  }
+  function knownAnswer(key){return resolveFact(key).value;}
+  function fieldMeaning(label,job,options=[]){
+    const l=semanticText(label),country=/united states/.test(l),foreign=/\b(canada|canadian|united kingdom|british|australia|australian|india|indian|philippines|philippine|singapore|europe|european)\b/.test(l);
+    const usContext=!foreign&&(country||/\bUSA\b|\bUS\b|United States/i.test(job?.location||''));
+    const none=explanation=>({key:null,inverted:false,explanation:explanation||''});
+    if(/\b(consent|signature|acknowledge|attest|agree|certify)\b|privacy policy|terms and conditions/.test(l))return none();
+    if(country&&!foreign&&/united states person/.test(l)&&/itar|ear|export|22 cfr|15 cfr/.test(l)&&!/clearance|polygraph|export license/.test(l))return {key:'us_export_person',inverted:false};
+    const eligibility=/citizen|citizenship|authoriz|authoris|eligible|sponsor/.test(l);
+    if(eligibility&&/clearance|polygraph|export license|\band\b.{0,25}(degree|experience|residen|relocat)|exclusiv|dual citizen|only citizen|born in|by birth|by naturalization|held.{0,20}citizenship|background check|drug test|drug screen/.test(l))return none('This asks for an additional condition beyond citizenship. Your saved citizenship alone cannot answer the whole question.');
+    if(/(?:provide|present|upload|possess).{0,25}(?:proof|document|evidence)|passport number|birth certificate/.test(l))return none();
+    if(/citizen/.test(l)&&/\band\b.{0,70}(licen[cs]e|passport|age|18|resid|relocat|travel|clearance|degree)/.test(l))return none('Your saved citizenship is only part of this combined requirement.');
+    const result=(key,inverted=false,extra={})=>({key,inverted,...extra});
+    if(country&&!foreign&&/citizen|citizenship/.test(l)&&!/what countr|which countr|countr.{0,15}citizenship/.test(l)){
+      if(options.some(o=>/permanent resident|green card|h 1b|f 1/.test(semanticText(o.label)))&&!options.some(o=>booleanAnswer(o.label)))return result('us_work_status');
+      if(/\bnational\b/.test(l)&&/\bor\b/.test(l))return result('us_national');
+      if(/permanent residen|green card/.test(l))return /\bor\b/.test(l)?result('us_citizen_or_resident'):none('Citizenship and permanent residence are different facts.');
+      if(/sponsor|authoriz|authoris/.test(l))return none('This combines citizenship with another eligibility condition.');
+      return result('us_citizen',/\bnot\b.{0,20}citizen|\bnon\b.{0,20}citizen|lack.{0,20}citizenship/.test(l));
     }
-    return null;
+    if(usContext&&/sponsor/.test(l)&&/visa|immigration|employment|work|now or in the future/.test(l)){
+      if(/without.{0,40}sponsor|no.{0,15}sponsorship/.test(l)&&/work|employ/.test(l))return result('us_work_without_sponsorship');
+      return result('us_sponsorship',/not.{0,20}(need|require)|no.{0,15}(need|require)/.test(l));
+    }
+    if(usContext&&/authoriz|authoris|right to work|eligib.{0,15}(work|employ)|permitted to work/.test(l)){
+      if(/status|type of|category/.test(l)&&!/yes or no/.test(l))return result('us_work_status');
+      return result(/any employer|unrestricted|without restrictions|unlimited/.test(l)?'us_unrestricted_work_authorization':'us_work_authorization',/not.{0,20}(authoriz|authoris|eligible)|unable to work|do not have.{0,20}right to work/.test(l));
+    }
+    if(/\b18\b/.test(l)&&/at least|or older|over the age|18 years of age/.test(l)&&!/under|younger|and|convict/.test(l))return result('age_over_18');
+    if(usContext&&/valid.{0,20}driver.{0,15}licen[cs]e/.test(l)&&!/commercial|\bcdl\b|clean|driving record|and/.test(l))return result('us_driver_license_valid');
+    if(/travel/.test(l)&&!/relocat|short notice|year round|continuous|and|without returning/.test(l)){
+      const percent=l.match(/(\d{1,3})\s*%/);if(percent&&/willing|able|availab/.test(l))return result('travel_percent',false,{threshold:Number(percent[1])});
+      if(/percent|percentage|how much/.test(l))return result('travel_percent');
+    }
+    if(/first name|given name/.test(l))return result('first_name');if(/last name|surname|family name/.test(l))return result('last_name');
+    if(/full name|^name$/.test(l))return result('name');if(/^(your |personal |contact )?e ?mail( address)?$/.test(l))return result('email');if(/^(your |contact |mobile |cell |telephone )?(phone|telephone|mobile|cell)( number)?$/.test(l))return result('phone');
+    if(/linkedin/.test(l))return result('linkedin');if(/github/.test(l))return result('github');if(/^(personal |your )?(website|portfolio)( url| link| address)?$/.test(l))return result('portfolio');
+    if(/^(upload |attach |your |current )?(resume|cv)( (or )?(resume|cv))?( file| optional)?$/.test(l))return result('resume');
+    if(/street|postal|zip code|address line|state of residence|country of residence/.test(l))return none();
+    if(/current.*(city|location)|where do you (reside|live)|currently (reside|live)|residential location/.test(l))return result('current_location');
+    if(/start date|available to start|when can you start/.test(l))return result('start_date');
+    if(/years/.test(l)){const skill=[...(data.profile.skills||[])].sort((a,b)=>b.length-a.length).find(s=>s.length>2&&l.includes(semanticText(s)));if(skill)return result('years_experience:'+skill.toLowerCase());}
+    return none();
+  }
+  function fieldFactValue(field,value){
+    const selected=field.options?.find(o=>String(o.value)===String(value));let fact=booleanAnswer(selected?.label??value);
+    if(!fact&&['us_citizen','us_work_status'].includes(field.key)){
+      const label=semanticText(selected?.label??value);if(/^(i am a |a )?united states citizen$/.test(label))fact='Yes';if(/^(i am )?not (a )?united states citizen$/.test(label))fact='No';
+    }
+    return field.inverted&&fact?(fact==='Yes'?'No':'Yes'):fact;
+  }
+  function migrateAnswerKnowledge(){
+    if(data.answerKnowledgeVersion==='2026-10-20-v1')return;
+    const candidates=new Map(),promotions=[];
+    for(const d of Object.values(data.drafts))if(d.stage!=='submitted')for(const f of d.fields)if(!f.internal){
+      const old=f.key;Object.assign(f,fieldMeaning(f.label,data.jobs[d.jobId],f.options||[]));
+      if(old!==f.key&&d.fieldSources[f.id]==='application_edit'&&['us_citizen','us_work_authorization','us_sponsorship','age_over_18','us_driver_license_valid'].includes(f.key)){
+        const value=fieldFactValue(f,d.values[f.id]);if(value){if(!candidates.has(f.key))candidates.set(f.key,new Set());candidates.get(f.key).add(value);promotions.push({d,f,value});}
+      }
+    }
+    for(const [key,values] of candidates)if(values.size===1&&!data.answers[key])data.answers[key]={value:[...values][0],label:factDefinitions[key].label,source:'Learned from your previous application answer',confirmedAt:Date.now()};
+    for(const {d,f,value} of promotions)if(data.answers[f.key]?.value===value)d.fieldSources[f.id]='Saved answer';
+    data.answerKnowledgeVersion='2026-10-20-v1';
   }
   const baselineFields=()=>[
     {id:'name',label:'Full name',key:'name',required:true,type:'input_text'},
@@ -275,7 +343,7 @@
         if(Array.isArray(payload.questions)){
           fields=payload.questions.flatMap((q,index)=>{
             const field=(q.fields||[]).find(f=>f.type==='input_file')||q.fields?.[0]||{};
-            return [{id:field.name||'q'+index,label:text(q.label),key:fieldKey(text(q.label),j),required:!!q.required,type:field.type||'input_text',options:(field.values||[]).map(v=>({value:String(v.value),label:text(v.label)})),alternatives:q.fields||[]}];
+            return [{id:field.name||'q'+index,label:text(q.label),...fieldMeaning(text(q.label),j,(field.values||[]).map(v=>({label:text(v.label)}))),required:!!q.required,type:field.type||'input_text',options:(field.values||[]).map(v=>({value:String(v.value),label:text(v.label)})),alternatives:q.fields||[]}];
           });
           // Location and compliance may be dynamic and are not silently assumed complete.
           formVerified=true;formStatus='Published questions loaded. Consent, location validation, and dynamic questions still need employer-site review.';
@@ -292,11 +360,20 @@
     const p=data.profile,k=field.key;
     if(k==='resume'){const r=p.resumes[draft.resumeTrack];return resumeURL(r)?r.name:'';}
     let v=k&&knownAnswer(k)!==''?knownAnswer(k):k==='first_name'?p.name.split(' ')[0]:k==='last_name'?p.name.split(' ').slice(1).join(' '):['name','email','phone','linkedin','github','portfolio'].includes(k)?p[k]:'';
-    if((field.options||[]).length&&v){
-      if(Array.isArray(v)){const matches=v.map(label=>field.options.find(o=>o.label.toLowerCase()===String(label).toLowerCase()));return matches.every(Boolean)?matches.map(o=>o.value):[];}
-      const opt=field.options.find(o=>o.label.toLowerCase()===String(v).toLowerCase());return opt?opt.value:'';
+    if(field.threshold!==undefined&&v!=='')v=Number(v)>=field.threshold?'Yes':'No';
+    if(field.inverted&&booleanAnswer(v))v=booleanAnswer(v)==='Yes'?'No':'Yes';
+    if((field.options||[]).length&&v!==''){
+      const match=label=>{
+        const exact=field.options.filter(o=>semanticText(o.label)===semanticText(label));if(exact.length===1)return exact[0];
+        if(k==='travel_percent'&&field.threshold===undefined){const numeric=field.options.filter(o=>/^\d{1,3}\s*%?$/.test(o.label.trim())&&parseFloat(o.label)===Number(label));if(numeric.length===1)return numeric[0];}
+        if(k==='us_work_status'&&semanticText(label)==='united states citizen'){const citizenship=field.options.filter(o=>/^(i am a |a )?united states citizen$/.test(semanticText(o.label)));if(citizenship.length===1)return citizenship[0];}
+        const binary=booleanAnswer(label);if(binary){const options=field.options.filter(o=>{const candidate=booleanAnswer(o.label)||(['us_citizen','us_work_status'].includes(k)?/^(i am a |a )?united states citizen$/.test(semanticText(o.label))?'Yes':/^(i am )?(not a|not|non) united states citizen$/.test(semanticText(o.label))?'No':null:null);return candidate===binary&&!/\b(but|only if|provided|assuming|subject to)\b/.test(semanticText(o.label));});if(options.length===1)return options[0];}
+        return null;
+      };
+      if(Array.isArray(v)){const matches=v.map(match);return matches.every(Boolean)?matches.map(o=>o.value):[];}
+      const opt=match(v);return opt?(field.type==='multi_value_multi_select'?[opt.value]:opt.value):'';
     }
-    return v||'';
+    return v??'';
   }
   function filled(field,value){
     if(value===undefined||value===null||String(value).trim()==='')return false;
@@ -312,7 +389,7 @@
       if(s==='application_edit'&&field.key!=='resume')continue;
       const next=autoValue(field,draft);
       if(old!==next){draft.values[field.id]=next;changed=true;}
-      draft.fieldSources[field.id]=field.key&&data.answers[field.key]?'Saved answer':field.key?'Resume/profile':'Unanswered';
+      draft.fieldSources[field.id]=field.key&&resolveFact(field.key).known?resolveFact(field.key).source:field.key&&next!==''?'Resume/profile':'Unanswered';
     }
     draft.missing=draft.fields.filter(f=>f.required&&(!filled(f,draft.values[f.id])||f.key==='resume'&&!resumeURL(data.profile.resumes[draft.resumeTrack])||f.type==='input_file'&&f.key!=='resume'&&!draft.attachments?.[f.id]||f.internal&&['Unknown','Other / verify'].includes(draft.values[f.id]))).map(f=>f.id);
     if(changed&&draft.approved){draft.approved=false;draft.version++;}
@@ -335,7 +412,7 @@
       if(data.archived[draft.jobId]||draft.stage==='submitted')continue;
       for(const f of draft.fields.filter(f=>draft.missing?.includes(f.id))){
         const key=f.key||draft.jobId+'::'+f.id;
-        if(!groups.has(key))groups.set(key,{key,reusable:!!f.key,label:f.label,type:f.type,options:f.options||[],jobs:[],fields:[]});
+        if(!groups.has(key)){const definition=f.key&&factDefinitions[f.key];groups.set(key,{key,reusable:!!f.key,label:definition?.label||f.label,type:definition?'input_text':f.type,options:definition?.options||f.options||[],explanation:f.explanation||'',jobs:[],fields:[]});}
         const g=groups.get(key);g.jobs.push(draft.jobId);g.fields.push({jobId:draft.jobId,fieldId:f.id});
       }
     }
@@ -343,7 +420,7 @@
   }
   function answer(key,value,scope='global'){
     if(scope==='global'){data.answers[key]={value,label:key,source:'User answer',confirmedAt:Date.now()};for(const id of Object.keys(data.drafts))reconcileDraft(id);}
-    else {const [jobId,fieldId]=key.split('::');const d=data.drafts[jobId];if(d){d.values[fieldId]=value;d.fieldSources[fieldId]='application_edit';d.approved=false;d.version++;reconcileDraft(jobId);}}
+    else {const [jobId,fieldId]=key.split('::');const d=data.drafts[jobId];if(!d||d.stage==='submitted')return false;if(d){d.values[fieldId]=value;d.fieldSources[fieldId]='application_edit';d.approved=false;d.version++;reconcileDraft(jobId);}}
     save();emit();
   }
   function updateDraft(id,values,note,base){
@@ -368,5 +445,5 @@
     const groups=[[]];for(const token of orGroups){if(token.toUpperCase()==='OR')groups.push([]);else if(token.toUpperCase()!=='AND')groups.at(-1).push(token);}
     return groups.some(group=>group.every(token=>{const neg=token.startsWith('-'),term=(neg?token.slice(1):token).replace(/^"|"$/g,'').toLowerCase();return !term?true:neg?!hay.includes(term):hay.includes(term);}));
   }
-  window.JobEngine={init,get data(){return data;},get busy(){return busy;},subscribe(fn){listeners.push(fn);},sources:allSources,sourceEnabled,pull,prepare,prepareBest,save,emit,missingGroups,answer,updateDraft,approve,archive,restore,markSubmitted,importJob,setSource,addSource,matchesQuery,isBlocked,text,safeURL,normalize,parsePay,resumeURL,setProfile,importProfile};
+  window.JobEngine={init,get data(){return data;},get busy(){return busy;},subscribe(fn){listeners.push(fn);},sources:allSources,sourceEnabled,pull,prepare,prepareBest,save,emit,missingGroups,answer,updateDraft,approve,archive,restore,markSubmitted,importJob,setSource,addSource,matchesQuery,isBlocked,text,safeURL,normalize,parsePay,resumeURL,setProfile,importProfile,resolveFact,factDefinition:key=>factDefinitions[key]||null,fieldMeaning};
 })();
