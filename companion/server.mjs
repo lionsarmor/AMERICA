@@ -65,6 +65,8 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
           const saved = await readFile(resolve(dataDir, 'workspace.json'), 'utf8').catch(() => 'null'); const workspace = JSON.parse(saved); return json(res, 200, { workspace, revision: workspace?.storageRevision || null });
         }
         if (url.pathname === '/api/workspace' && req.method === 'PUT') { const value = validateWorkspace(await readBody(req)), revision = randomBytes(16).toString('hex'); await atomic('workspace.json', async () => { const current = JSON.parse(await readFile(resolve(dataDir, 'workspace.json'), 'utf8').catch(() => 'null')); if ((current?.storageRevision || null) !== (value.baseRevision || null)) throw new Error('Another window has a newer backup. Restore it or choose this browser version.'); const { baseRevision, ...bundle } = value; return { ...bundle, storageRevision: revision }; }); return json(res, 200, { savedAt: Date.now(), revision }); }
+        if(url.pathname==='/api/automation/exclusions'&&req.method==='GET')return json(res,200,automation.policy());
+        if(url.pathname==='/api/automation/exclusions'&&req.method==='PUT')return json(res,200,await automation.updatePolicy(await readBody(req)));
         if(url.pathname==='/api/automation'&&req.method==='GET')return json(res,200,{applications:automation.list()});
         if(url.pathname==='/api/automation/apply'&&req.method==='POST')return json(res,202,await automation.apply(await readBody(req)));
         if(url.pathname.startsWith('/api/automation/')){
@@ -74,7 +76,7 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
           if(req.method==='POST'&&operation==='interact')return json(res,200,await automation.interact(id,await readBody(req)));
           if(req.method==='DELETE'){await automation.cancel(id);return json(res,200,{cancelled:true});}
         }
-        if(url.pathname==='/api/applications/prepare'&&req.method==='POST')return json(res,202,await applications.prepare(await readBody(req)));
+        if(url.pathname==='/api/applications/prepare'&&req.method==='POST'){const input=await readBody(req);automation.checkAllowed(input);return json(res,202,await applications.prepare(input));}
         if(url.pathname.startsWith('/api/applications/')){
           const [id,operation]=url.pathname.slice('/api/applications/'.length).split('/');
           if(req.method==='GET')return json(res,200,applications.get(id));

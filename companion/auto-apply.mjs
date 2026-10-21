@@ -7,13 +7,15 @@ import {isIP} from 'node:net';
 import {runInNewContext} from 'node:vm';
 import {createApplicationVault} from './application-vault.mjs';
 import {normalizeRequest} from './reasoner.mjs';
+import '../site/employer-policy.js';
+const P=globalThis.JobbiesEmployerPolicy;
 
 const knowledgeContext={window:{}};runInNewContext(await readFile(new URL('../site/question-library.js',import.meta.url),'utf8'),knowledgeContext);
 const knowledge=knowledgeContext.window.ApplicantKnowledge;
 const hash=value=>createHash('sha256').update(value).digest('hex');
 export const questionKey=label=>'employer_question:'+hash(normalizeLabel(label));
 export const normalizeLabel=value=>String(value||'').toLowerCase().replace(/[\s*]+/g,' ').trim();
-const knownATS=host=>/(?:^|\.)(?:greenhouse\.io|lever\.co|myworkdayjobs\.com|myworkdaysite\.com|ashbyhq\.com|smartrecruiters\.com|icims\.com|taleo\.net)$/.test(host);
+const knownATS=host=>/(?:^|\.)(?:greenhouse\.io|lever\.co|myworkdayjobs\.com|myworkdaysite\.com|ashbyhq\.com|smartrecruiters\.com|icims\.com|taleo\.net|jobvite\.com|applytojob\.com|paylocity\.com|ultipro\.com|oraclecloud\.com|dayforcehcm\.com)$/.test(host);
 const privateIP=ip=>/^(?:127\.|10\.|192\.168\.|169\.254\.|0\.|224\.|255\.|::|fc|fd|fe80|ff)/i.test(ip)||/^172\.(?:1[6-9]|2\d|3[01])\./.test(ip)||/^100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(ip);
 export function applicationURL(value){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&!isIP(u.hostname)&&u.hostname.includes('.')&&!/(?:^|\.)(?:localhost|local|internal)$/.test(u.hostname);}catch{return false;}}
 const confirmation=/thank you for applying|thank you for your application|application (?:has been |was )?(?:successfully )?(?:submitted|received)|we(?:'ve| have) received your application|you have successfully applied/i;
@@ -81,6 +83,7 @@ function optionValue(field,value){
 
 export async function createAutoApply({directory,reasoner,workingDirectory,launch=()=>chromium.launch({headless:true}),resolveHost=lookup,legacyLedgerPath}={}){
  await mkdir(directory,{recursive:true,mode:0o700});const vault=await createApplicationVault(join(directory,'vault'));
+ const policyPath=join(directory,'exclusions.json');let policy=P.validate(JSON.parse(await readFile(policyPath,'utf8').catch(e=>{if(e.code==='ENOENT')return '{}';throw e;}))),policyTail=Promise.resolve();
  const indexPath=join(directory,'tasks.json');const records=JSON.parse(await readFile(indexPath,'utf8').catch(e=>{if(e.code==='ENOENT')return '{}';throw e;})),tasks=new Map();let browser,launching,writeTail=Promise.resolve(),stopping=false;
  for(const record of Object.values(records)){if(active.has(record.status)){record.status=record.status==='sending'?'unknown':'paused';record.message=record.status==='unknown'?'The worker restarted during submission. Check the receipt before any retry.':'The worker restarted. Resume to continue your approved application.';}tasks.set(record.id,record);}
  const persist=()=>{const data=JSON.stringify(Object.fromEntries([...tasks].map(([id,t])=>[id,{id:t.id,key:t.key,jobId:t.jobId,version:t.version,status:t.status,message:t.message,receipt:t.receipt,createdAt:t.createdAt,updatedAt:t.updatedAt,events:t.events,questions:t.questions,review:t.review,attempted:t.attempted}])));writeTail=writeTail.catch(()=>{}).then(async()=>{await writeFile(indexPath+'.tmp',data,{mode:0o600});await rename(indexPath+'.tmp',indexPath);});return writeTail;};
@@ -90,7 +93,7 @@ export async function createAutoApply({directory,reasoner,workingDirectory,launc
  async function pause(t,message,status='needs_input',questions=[]){t.questions=questions;t.preview=(await t.page.screenshot({type:'jpeg',quality:60}).catch(()=>Buffer.alloc(0))).toString('base64');await checkpoint(t);await progress(t,message,status);}
  const keyFor=input=>hash(new URL(input.job.url).origin+new URL(input.job.url).pathname+'\n'+input.email.trim().toLowerCase());
  async function apply(input){
-  validateAutoApplication(input);const key=keyFor(input);
+  validateAutoApplication(input);checkAllowed(input);const key=keyFor(input);
   if(legacyLedgerPath){const legacy=JSON.parse(await readFile(legacyLedgerPath,'utf8').catch(e=>{if(e.code==='ENOENT')return '{}';throw e;}));if(legacy[key])throw Error('A previous submission already exists for this employer role. Check its receipt before retrying.');}
   const existing=[...tasks.values()].find(t=>t.key===key&&!['cancelled','blocked'].includes(t.status));
   if(existing)return publicTask(existing);
@@ -104,7 +107,7 @@ export async function createAutoApply({directory,reasoner,workingDirectory,launc
   const dnsCache=new Map(),initial=new URL(t.input.job.url).hostname;
   await t.context.route('**/*',async route=>{
    try{const r=route.request(),u=new URL(r.url());if(!['https:','data:','blob:'].includes(u.protocol))return route.abort();if(u.protocol!=='https:')return route.continue();
-    if(r.isNavigationRequest()&&r.frame()===t.page?.mainFrame()&&u.hostname!==initial&&!knownATS(u.hostname))return route.abort();
+    if(r.isNavigationRequest()&&r.frame()===t.page?.mainFrame()&&u.hostname!==initial&&u.hostname.split('.').slice(-2).join('.')!==initial.split('.').slice(-2).join('.')&&!knownATS(u.hostname))return route.abort();
     if(!dnsCache.has(u.hostname))dnsCache.set(u.hostname,await resolveHost(u.hostname,{all:true}));if(dnsCache.get(u.hostname).some(a=>privateIP(a.address)))return route.abort();
     return route.fallback();
    }catch{return route.abort();}
@@ -167,7 +170,7 @@ export async function createAutoApply({directory,reasoner,workingDirectory,launc
    if(!t.page||t.page.isClosed())await prepareContext(t);
    let previous='',repeats=0;
    for(let step=0;step<60&&!stopping&&t.status!=='cancelled';step++){
-    await t.page.waitForLoadState('domcontentloaded');
+    checkAllowed(t.input);await t.page.waitForLoadState('domcontentloaded');
     const frame=t.page.frames().find(f=>f!==t.page.mainFrame()&&applicationURL(f.url())&&knownATS(new URL(f.url()).hostname))||t.page.mainFrame();t.frame=frame;
     const body=(await frame.locator('body').innerText()).slice(0,45000);
     const received=await receipt(frame);if(received){
@@ -200,7 +203,7 @@ export async function createAutoApply({directory,reasoner,workingDirectory,launc
      t.loginAttempted=signature;await button.click();await t.page.waitForTimeout(1200);t.account.registered=true;await checkpoint(t);continue;
     }
     t.creatingAccount=false;
-    const apply=await choose(frame,/^apply manually$/i)||await choose(frame,/^apply(?: now| manually| for (?:this )?(?:job|position))?$|^start (?:your )?application$/i);
+    const apply=await choose(frame,/^apply manually$/i)||await choose(frame,/^apply(?: now| manually| for (?:this )?(?:job|position))?$|^start (?:your )?application$|^i['’]m interested$/i);
     const fields=await inspect(frame),final=await choose(frame,finalButton),next=await choose(frame,nextButton);
     if(apply&&!final&&!next&&fields.filter(f=>f.required).length===0){await progress(t,'Opening the employer application.');await apply.click();await t.page.waitForTimeout(900);continue;}
     await progress(t,'Filling your application and uploading the selected resume.');
@@ -210,7 +213,7 @@ export async function createAutoApply({directory,reasoner,workingDirectory,launc
     if(send){
      if(t.attempted){await pause(t,'A submission was already attempted. Jobbies will not send a duplicate.','unknown');return;}
      // Persist intent before the only final submission click, including across crashes.
-     t.attempted=true;await progress(t,'Submitting your approved application.','sending');
+     checkAllowed(t.input);t.attempted=true;await progress(t,'Submitting your approved application.','sending');
      await send.click({timeout:15000});
      let message='';for(let n=0;n<30&&!message;n++){await t.page.waitForTimeout(1000);message=await receipt(frame);}
      if(message){t.receipt={at:Date.now(),url:t.page.url(),message,method:'Automated employer browser confirmation',answers:t.review};await checkpoint(t);await progress(t,'Application sent. Employer confirmation saved.','submitted');await t.context.close();return;}
@@ -226,7 +229,7 @@ export async function createAutoApply({directory,reasoner,workingDirectory,launc
  async function pump(){if(stopping||[...tasks.values()].some(t=>t.running))return;const t=[...tasks.values()].find(t=>t.status==='queued');if(!t)return;t.running=true;await progress(t,'Opening the application browser.');try{await drive(t);}finally{t.running=false;void pump();}}
  async function resume(id,{answers={},password,verificationCode}={}){
   const t=tasks.get(id);if(!t)throw Error('Application not found.');if(!['needs_input','needs_verification','needs_login','paused','blocked'].includes(t.status)||t.attempted)throw Error('This application cannot be resumed.');
-  t.input||=await vault.read('task:'+id);t.input.facts||={};
+  t.input||=await vault.read('task:'+id);checkAllowed(t.input);t.input.facts||={};
   for(const field of t.questions||[])if(Object.hasOwn(answers,field.id)&&field.kind!=='password')t.input.facts[questionKey(field.label)+'@'+new URL(t.input.job.url).origin]=answers[field.id];
   if(password){if(typeof password!=='string'||password.length>1000)throw Error('Invalid account password.');if(!t.accountScope)t.accountScope='account:'+new URL(t.input.job.url).origin+':'+t.input.email.trim().toLowerCase();t.account||=await vault.read(t.accountScope);t.account.password=password;t.account.registered=true;await vault.write(t.accountScope,t.account);delete t.loginAttempted;}
   if(verificationCode){if(!t.frame)throw Error('Verification expired. Resume the application first.');const field=t.frame.locator('input[autocomplete=one-time-code],input[name*=code i],input[id*=code i]').filter({visible:true});if(await field.count()!==1)throw Error('Use the verification screen to enter this code.');await field.fill(String(verificationCode));const verify=await choose(t.frame,/^verify(?: email| code)?$|^continue$|^confirm$/i);if(verify){await verify.click();await t.page.waitForTimeout(800);}}
@@ -234,5 +237,16 @@ export async function createAutoApply({directory,reasoner,workingDirectory,launc
  }
  async function interact(id,action){const t=tasks.get(id);if(!t?.page||t.status!=='needs_verification')throw Error('No employer verification is waiting.');if(action.type==='click'&&Number.isFinite(action.x)&&Number.isFinite(action.y)&&action.x>=0&&action.x<1100&&action.y>=0&&action.y<850)await t.page.mouse.click(action.x,action.y);else if(action.type==='text'&&typeof action.text==='string'&&action.text.length<=1000)await t.page.keyboard.insertText(action.text);else if(action.type==='key'&&['Tab','Enter','Space','Backspace','ArrowDown','ArrowUp'].includes(action.key))await t.page.keyboard.press(action.key);else if(action.type!=='refresh')throw Error('Unsupported verification action.');await t.page.waitForTimeout(400);t.preview=(await t.page.screenshot({type:'jpeg',quality:65})).toString('base64');return publicTask(t);}
  async function cancel(id){const t=tasks.get(id);if(!t)return;if(t.attempted)throw Error('Submission has already started. Wait for the receipt.');await progress(t,'Application cancelled.','cancelled');await t.context?.close();}
- return {apply,resume,interact,cancel,get:id=>{const t=tasks.get(id);if(!t)throw Error('Application not found.');return publicTask(t);},list:()=>[...tasks.values()].map(publicTask),close:async()=>{stopping=true;await browser?.close();await writeTail.catch(()=>{});}};
+ function checkAllowed(input){if(P.blocked(input?.job?.company,policy.employerPreferences))throw Error('This company is blocked. Unblock it before applying.');if(P.hidden(input?.job?.url,policy.jobVisibility))throw Error('This job is hidden. Restore it before applying.');}
+ async function updatePolicy(input){
+  const next=P.validate(input);policyTail=policyTail.catch(()=>{}).then(async()=>{
+   policy={employerPreferences:P.merge(policy.employerPreferences,next.employerPreferences),jobVisibility:P.merge(policy.jobVisibility,next.jobVisibility)};
+   await writeFile(policyPath+'.tmp',JSON.stringify(policy),{mode:0o600});await rename(policyPath+'.tmp',policyPath);
+   for(const t of tasks.values())if(!t.attempted&&!['cancelled','submitted','unknown'].includes(t.status)){
+    t.input||=await vault.read('task:'+t.id);if(P.blocked(t.input.job.company,policy.employerPreferences)||P.hidden(t.input.job.url,policy.jobVisibility)){await progress(t,'Cancelled because the company or job is excluded.','cancelled');await t.context?.close();}
+   }
+   return structuredClone(policy);
+  });return policyTail;
+ }
+ return {updatePolicy,policy:()=>structuredClone(policy),checkAllowed,apply,resume,interact,cancel,get:id=>{const t=tasks.get(id);if(!t)throw Error('Application not found.');return publicTask(t);},list:()=>[...tasks.values()].map(publicTask),close:async()=>{stopping=true;await browser?.close();await writeTail.catch(()=>{});await policyTail.catch(()=>{});}};
 }

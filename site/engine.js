@@ -5,6 +5,7 @@
   const K=window.ApplicantKnowledge;
   const questionVersion='2026-10-21-profile-first-v3';
   const M=window.JobbiesMatching;
+  const P=window.JobbiesEmployerPolicy;
   const sources = [
     {id:'parsons-travel',name:'Parsons travel technical roles',group:'Government & projects',kind:'snapshot',url:'travel-feed.json',home:'https://parsons.wd5.myworkdayjobs.com/Search',interval:6*HOUR,enabled:true,note:'Public employer listings for technical travel work. Snapshot refreshed by the site deployment; source timestamp is shown below. Employer applications use Workday.'},
     {id:'remotive',name:'Remotive',group:'Specialist boards',kind:'remotive',url:'https://remotive.com/api/remote-jobs',home:'https://remotive.com/',interval:6*HOUR,enabled:true,note:'Public remote roles; recommendations filter for your actual experience. Listings may be delayed by 24 hours. Source attribution retained.'},
@@ -32,7 +33,7 @@
     work_arrangements:{value:['W-2','1099','C2C'],label:'Work arrangements',source:'Confirmed preference'}
   };
   let db, data, listeners=[], busy=false, saveTail=Promise.resolve();
-  const resumeURLs=new WeakMap();
+  const resumeURLs=new WeakMap(),snapshotReads=new Map();
   const bundledResumeVersion='2026-10-20-evidence-3';
   const bundledResumePaths=new Set(['resumes/James_Weeks_Technician_Resume.docx','resumes/James_Weeks_Software_Resume_Updated.docx']);
   function resumeURL(resume){
@@ -40,21 +41,44 @@
     if(bundledResumePaths.has(resume?.url))return new URL(resume.url,document.baseURI).href;
     return '';
   }
-  const jobDecision=job=>M.intake(job,data.settings.discoveryRules||{});
-  const businessDecision=job=>M.intake({...job,...M.rank(job,data.profile,{...data.answers,work_arrangements:data.businessProfile?.arrangements?.length?{value:data.businessProfile.arrangements.map(a=>a==='c2c'?'C2C':'1099')}:undefined,target_roles:undefined,minimum_hourly:undefined},data.businessProfile),profileRecommended:undefined},data.settings.businessDiscoveryRules||{minimumTravel:0},true);
+  const companyBlocked=company=>P.blocked(company,data?.employerPreferences);
+  const isHidden=job=>P.hidden(job.url,data?.jobVisibility)||(!data?.jobVisibility?.[P.jobKey(job.url)]&&!!data?.archived?.[job.id]);
+  const jobDecision=job=>job.sources?.length&&job.sources.every(ref=>{const s=allSources().find(s=>s.id===ref.id);return s&&s.kind!=="manual"&&!sourceEnabled(s);})?{accepted:false,reasons:['Source disabled']}:companyBlocked(job.company)?{accepted:false,reasons:['Company blocked']} : isHidden(job)?{accepted:false,reasons:['Job hidden']} : M.intake(job,data.settings.discoveryRules||{});
+  const businessDecision=job=>companyBlocked(job.company)?{accepted:false,reasons:['Company blocked']} : isHidden(job)?{accepted:false,reasons:['Job hidden']} : M.intake({...job,...M.rank(job,data.profile,{...data.answers,work_arrangements:data.businessProfile?.arrangements?.length?{value:data.businessProfile.arrangements.map(a=>a==='c2c'?'C2C':'1099')}:undefined,target_roles:undefined,minimum_hourly:undefined},data.businessProfile),profileRecommended:undefined},data.settings.businessDiscoveryRules||{minimumTravel:0},true);
   function refreshMatches(){
-    for(const job of [...Object.values(data.jobs),...Object.values(data.businessLeads||{})]){
+    for(const job of [...Object.values(data.jobs),...Object.values(data.jobPool||{}),...Object.values(data.businessPool||{}),...Object.values(data.businessLeads||{})]){
       setMarket(job);
       Object.assign(job,M.classify(job,allSources().find(s=>s.id===job.sourceId)||{}));
       Object.assign(job,M.rank(job,data.profile,data.answers));job.profileRecommended=job.recommended;const decision=jobDecision(job);job.discoveryEligible=decision.accepted;job.intakeReasons=decision.reasons;job.recommended=job.profileRecommended&&decision.accepted;
     }
   }
+  function applyVisibility(){
+    data.employerPreferences=P.companies(data.employerPreferences);data.jobVisibility||={};data.archived||={};
+    for(const job of Object.values(data.jobs)){
+      const visibility=data.jobVisibility[P.jobKey(job.url)];
+      if(visibility?.hidden)data.archived[job.id]={reason:visibility.reason||'Hidden',at:visibility.updatedAt};else if(visibility)delete data.archived[job.id];
+      if(companyBlocked(job.company)||isHidden(job)){const d=data.drafts[job.id];if(d&&d.stage!=='submitted'&&d.approved){d.approved=false;d.version++;}}
+    }
+  }
+  async function mergeVisibilityPolicy(input){const policy=P.validate(input);data.employerPreferences=P.merge(data.employerPreferences,policy.employerPreferences);data.jobVisibility=P.merge(data.jobVisibility,policy.jobVisibility);applyVisibility();refreshMatches();await save();emit();}
+  async function blockCompany(name,blocked=true,reason='Not suitable'){
+    name=String(name||'').trim().slice(0,180);const key=P.companyKey(name);if(!key)throw Error('Enter a company name.');
+    data.employerPreferences||={};data.employerPreferences[key]={name,blocked,reason:String(reason).slice(0,300),updatedAt:Date.now()};
+    applyVisibility();refreshMatches();await save();emit();
+  }
+  async function hideJob(id,reason='Not suitable',hidden=true){
+    const job=data.jobs[id]||data.businessLeads?.[id];if(!job)throw Error('Job not found.');
+    data.jobVisibility||={};data.jobVisibility[P.jobKey(job.url)]={hidden,reason,updatedAt:Date.now()};
+    applyVisibility();refreshMatches();await save();emit();
+  }
+  function promoteBusinessPool(){for(const job of Object.values(data.businessPool||{}))if(businessDecision(job).accepted&&!data.businessLeads[job.id])data.businessLeads[job.id]={...structuredClone(job),pipeline:{stage:'new',note:'',proposal:''}};}
+  function promotePool(){for(const job of Object.values(data.jobPool||{})){if(!jobDecision(job).accepted)continue;const previous=Object.values(data.jobs).find(old=>P.jobKey(old.url)===P.jobKey(job.url));if(!previous)data.jobs[job.id]=structuredClone(job);}}
   async function setDiscoveryRules(input,business=false){
     const rule={...M.defaultRules,...input};
     for(const key of ['minimumTravel','minimumHourly','minimumAnnual']){rule[key]=Number(rule[key]);if(!Number.isFinite(rule[key])||rule[key]<0)throw Error('Use nonnegative numbers for travel and pay rules.');}
     if(rule.minimumTravel>100)throw Error('Travel must be between 0 and 100%.');
     rule.disciplines=(rule.disciplines||[]).filter(v=>M.defaultRules.disciplines.includes(v));
-    rule.updatedAt=Date.now();data.settings[business?'businessDiscoveryRules':'discoveryRules']=rule;refreshMatches();await save();emit();
+    rule.updatedAt=Date.now();data.settings[business?'businessDiscoveryRules':'discoveryRules']=rule;refreshMatches();if(!business){promotePool();refreshMatches();}else promoteBusinessPool();await save();emit();
   }
   async function saveBusinessLead(id,changes){const lead=data.businessLeads?.[id];if(!lead)throw Error('Contract opportunity not found.');lead.pipeline={...(lead.pipeline||{}),...changes,updatedAt:Date.now()};await save();emit();}
   async function importBusinessLead(raw){const lead=normalize(raw,{id:'manual',name:raw.source||'Manual contract import',kind:'manual'});if(!lead)throw Error('A job title and valid listing URL are required.');data.businessLeads||={};const old=Object.values(data.businessLeads).find(j=>canonical(j.url)===canonical(lead.url));if(old)return old;lead.pipeline={stage:'new',note:'',proposal:''};data.businessLeads[lead.id]=lead;await save();emit();return lead;}
@@ -127,9 +151,12 @@
         if(previous&&!replace){
           snapshot.answerDeletedAt={...previous.answerDeletedAt,...snapshot.answerDeletedAt};
           snapshot.answers=merge(previous.answers,snapshot.answers,snapshot.answerDeletedAt);
+          snapshot.employerPreferences=P.merge(previous.employerPreferences,snapshot.employerPreferences);snapshot.jobVisibility=P.merge(previous.jobVisibility,snapshot.jobVisibility);
+          data.employerPreferences=P.merge(snapshot.employerPreferences,data.employerPreferences);data.jobVisibility=P.merge(snapshot.jobVisibility,data.jobVisibility);applyVisibility();
+          snapshot.archived=structuredClone(data.archived);
           for(const key of ['discoveryRules','businessDiscoveryRules'])if((previous.settings?.[key]?.updatedAt||0)>(snapshot.settings?.[key]?.updatedAt||0)){snapshot.settings[key]=previous.settings[key];data.settings[key]=structuredClone(previous.settings[key]);}
           // Jobs and contracts have independent collections, even when both tabs are open.
-          for(const key of ['jobs','businessLeads','drafts']){
+          for(const key of ['jobs','jobPool','businessPool','businessLeads','drafts']){
             const combined={...previous[key],...snapshot[key]};
             for(const [id,old] of Object.entries(previous[key]||{})){
               const current=combined[id];
@@ -173,8 +200,10 @@
       data.bundledResumeVersion=bundledResumeVersion;
       await save();
     }
+    try{const response=await fetch('job-sources.json',{cache:'no-store'});if(response.ok){const manifest=await response.json();if(Array.isArray(manifest.sources)){data.managedSources=manifest.sources;if(data.sourceManifestVersion!==manifest.version){data.sourceManifestVersion=manifest.version;data.lastPull=null;}}}}catch{}
     data.settings ||= {autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12};
     data.businessProfile||={};data.businessLeads||={};data.settings.discoveryRules||=structuredClone(M.defaultRules);data.settings.businessDiscoveryRules||={...structuredClone(M.defaultRules),minimumTravel:0};data.settings.arrangements||=['w2','1099','c2c'];data.answers.work_arrangements||=structuredClone(defaultAnswers.work_arrangements);
+    applyVisibility();
     migrateAnswerKnowledge();
     refreshMatches();
     // Refresh derived matching fields after parser improvements without another network pull.
@@ -182,8 +211,8 @@
     for(const id of Object.keys(data.drafts)){const d=data.drafts[id];if(d.stage!=='submitted'){if(d.questionVersion!==questionVersion){d.questionsNeedRefresh=true;d.approved=false;d.version++;}addEligibilityQuestions(d.fields,data.jobs[id]);reconcileDraft(id);}}
     await save();emit();return data;
   }
-  const allSources=()=>[...sources,...(data?.customSources||[])];
-  const sourceEnabled=s=>s.kind!=='manual'&&s.kind!=='credential'&&(data.sourceState[s.id]?.enabled??s.enabled??true);
+  const allSources=()=>[...(data?.managedSources||[]),...sources.filter(s=>!data?.managedSources?.some(m=>m.id===s.id)),...(data?.customSources||[])];
+  const sourceEnabled=s=>!companyBlocked(s.company||s.employer||'')&&s.kind!=='manual'&&s.kind!=='credential'&&(data.sourceState[s.id]?.enabled??s.enabled??true);
   function excerpt(description,regex){return description.split(/[\n]|(?<=[.!?])\s+/).find(line=>regex.test(line))?.trim().slice(0,420)||'';}
   function rotationExcerpt(description){return description.split(/[\n]|(?<=[.!?])\s+/).find(line=>!/on.call|shift rotation|rotating shift/i.test(line)&&/\d+\s*(?:weeks?|days?).{0,25}\bon\b.{0,30}\boff\b|weeks?\s+off|between (projects|assignments)|consecutive.*leave|home rotation|rotational (assignment|schedule)/i.test(line))?.trim().slice(0,420)||'';}
   function setMarket(job){
@@ -236,7 +265,7 @@
     job.overall=Math.round(job.fit*.75+(job.payScore??40)*.15+(job.familyScore??35)*.1);
     job.seniorityReview=/principal|staff |director|vice president|\bVP\b/i.test(job.title);
     if(job.seniorityReview)job.overall-=12;
-    setMarket(job);Object.assign(job,M.classify(job,source));Object.assign(job,M.rank(job,data?.profile||{},data?.answers||{}));job.profileRecommended=job.recommended;if(data){const decision=jobDecision(job);job.discoveryEligible=decision.accepted;job.intakeReasons=decision.reasons;job.recommended=job.profileRecommended&&decision.accepted;}job.descriptionFingerprint=job.description.slice(0,12000);return job;
+    setMarket(job);Object.assign(job,M.classify(job,source));Object.assign(job,M.rank(job,data?.profile||{},data?.answers||{}));job.track=job.softwareRole?'software':'technician';job.profileRecommended=job.recommended;if(data){const decision=jobDecision(job);job.discoveryEligible=decision.accepted;job.intakeReasons=decision.reasons;job.recommended=job.profileRecommended&&decision.accepted;}job.descriptionFingerprint=job.description.slice(0,12000);return job;
   }
   async function request(url,source){
     for(let attempt=0;attempt<2;attempt++){
@@ -251,24 +280,26 @@
   async function readSource(source){
     const st=data.sourceState[source.id]||={};st.state='pulling';st.error=null;emit();
     try{
-      let raw=[],url=source.url;
+      let raw=[],url=source.url,sourceWarning=null;
       if(source.kind==='greenhouse')url=`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(source.board)}/jobs?content=true`;
       if(source.kind==='lever')url=`https://api.lever.co/v0/postings/${encodeURIComponent(source.board)}?mode=json`;
       if(source.kind==='ashby')url=`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(source.board)}?includeCompensation=true`;
       let next=null,page=0,partial=false;
       do {
         const pageURL=page&&next?url+'&cursor='+encodeURIComponent(next):url;
-        const payload=await request(pageURL,source);
+        let payload;if(source.kind==='snapshot'){if(!snapshotReads.has(pageURL))snapshotReads.set(pageURL,request(pageURL,source));payload=await snapshotReads.get(pageURL);}else payload=await request(pageURL,source);
         if(payload.success===false)throw new Error(payload.error||'The source reported a failed request.');
-        if(source.kind==='snapshot'){if(!payload.generatedAt||Date.now()-Date.parse(payload.generatedAt)>72*HOUR)throw Error('Travel feed is more than 72 hours old. Check the employer board while the feed is refreshed.');st.feedUpdatedAt=payload.generatedAt;}
+        if(source.kind==='snapshot'){const report=payload.sources?.[source.id];if(report?.state==='error')sourceWarning='Latest refresh failed; showing the previous cached employer snapshot.';const timestamp=report?.generatedAt||payload.generatedAt;if(!timestamp||Date.now()-Date.parse(timestamp)>72*HOUR)throw Error('Travel feed is more than 72 hours old. Check the employer board while the feed is refreshed.');st.feedUpdatedAt=timestamp;}
         const list=Array.isArray(payload)?payload:payload.jobs;
         if(!Array.isArray(list))throw new Error('Unexpected feed format; previous jobs retained.');
-        raw.push(...list);next=source.kind==='jobicy'?payload.nextCursor:null;page++;
+        raw.push(...(source.kind==='snapshot'&&payload.sources?list.filter(j=>j.provider===source.id||!j.provider&&source.company&&P.companyKey(j.company)===P.companyKey(source.company)):source.kind==='snapshot'&&source.company?list.filter(j=>P.companyKey(j.company)===P.companyKey(source.company)):list));next=source.kind==='jobicy'?payload.nextCursor:null;page++;
       }while(next&&page<8);
       partial=!!next;
       let added=0,updated=0,relevant=0,rejected=0,contracts=0;const rejectionReasons={};
       for(const item of raw){
         const j=normalize(item,source);if(!j||!j.isTechnical)continue;
+        if(!companyBlocked(j.company)&&!isHidden(j)&&(!j.softwareRole||j.remoteExplicit)){data.jobPool||={};data.jobPool[j.id]=j;}
+        if(j.business&&!companyBlocked(j.company)&&!isHidden(j)){data.businessPool||={};data.businessPool[j.id]=j;}
         if(businessDecision(j).accepted){data.businessLeads||={};const old=data.businessLeads[j.id];data.businessLeads[j.id]={...j,pipeline:old?.pipeline||{stage:'new',note:'',proposal:''}};contracts++;}
         const decision=jobDecision(j);
         if(!decision.accepted){rejected++;for(const reason of decision.reasons)rejectionReasons[reason]=(rejectionReasons[reason]||0)+1;continue;}relevant++;
@@ -280,17 +311,17 @@
         }else added++;
         data.jobs[j.id]=j;
       }
-      Object.assign(st,{state:partial?'partial':'ok',lastSuccess:Date.now(),lastAttempt:Date.now(),nextAllowed:Date.now()+source.interval,read:raw.length,relevant,added,updated,rejected,contracts,rejectionReasons,partial,error:null});
+      Object.assign(st,{state:partial||sourceWarning?'partial':'ok',lastSuccess:Date.now(),lastAttempt:Date.now(),nextAllowed:Date.now()+source.interval,read:raw.length,relevant,added,updated,rejected,contracts,rejectionReasons,partial,error:sourceWarning});
       return {source:source.name,added,updated,rejected,contracts,read:raw.length,partial};
     }catch(error){Object.assign(st,{state:'error',lastAttempt:Date.now(),nextAllowed:Math.max(st.nextAllowed||0,Date.now()+15*60000),error:error.name==='TimeoutError'?'Source timed out; existing jobs retained.':error instanceof TypeError?'Connection or browser access failed; existing jobs retained.':error.message});return {source:source.name,error:st.error};}
     finally{await save();emit();}
   }
-  async function pull({businessOnly=false}={}){
+  async function pull({businessOnly=false,refresh=false}={}){
     if(busy)return {busy:true};
     const task=async()=>{
-      busy=true;emit();
+      busy=true;snapshotReads.clear();emit();
       try{
-        const pending=allSources().filter(s=>sourceEnabled(s)&&(!(s.kind==='remotive'||s.kind==='jobicy')||(data.settings.discoveryRules?.remoteSoftware||data.settings.businessDiscoveryRules?.remoteSoftware))&&Date.now()>=(data.sourceState[s.id]?.nextAllowed||0));
+        const pending=allSources().filter(s=>sourceEnabled(s)&&(!(s.kind==='remotive'||s.kind==='jobicy')||(data.settings.discoveryRules?.remoteSoftware||data.settings.businessDiscoveryRules?.remoteSoftware))&&(Date.now()>=(data.sourceState[s.id]?.nextAllowed||0)||refresh&&s.kind==='snapshot'));
         const results=[];let index=0;
         await Promise.all(Array.from({length:Math.min(3,pending.length)},async()=>{while(index<pending.length){const s=pending[index++];results.push(await readSource(s));}}));
         if(pending.length)data.lastPull=Date.now();
@@ -446,7 +477,7 @@
     for(const [id,d] of Object.entries(data.drafts))if(d.stage!=='submitted'&&!data.archived[id]&&data.jobs[id]?.recommended&&d.questionsNeedRefresh)await prepare(id);
   }
   async function prepare(id,options={}){
-    const j=data.jobs[id];if(!j||data.archived[id])return;
+    const j=data.jobs[id];if(!j||data.archived[id])return;if(companyBlocked(j.company)||isHidden(j))throw Error('This company or job is excluded. Unblock or restore it first.');
     const prior=data.drafts[id];if(prior?.stage==='submitted')return prior;
     if(prior&&!prior.requirementsChanged&&!prior.questionsNeedRefresh&&!options.forceQuestions){addEligibilityQuestions(prior.fields,j);reconcileDraft(id);return prior;}
     let fields=baselineFields(),formStatus='Your profile and resume are prepared. Jobbies completes the employer form when you apply.',formVerified=false,rawForm=null,extras={dynamicFields:[],notes:[]};
@@ -538,7 +569,9 @@
     for(const j of candidates){if(selected.length>=data.settings.maximumPrepare)break;if(!selected.some(s=>s.id===j.id))selected.push(j);}
     for(const j of selected)await prepare(j.id);
   }
+  function searchStats(){const pool=[...new Map([...Object.values(data.jobPool||{}),...Object.values(data.jobs)].map(j=>[P.jobKey(j.url),j])).values()];return {cached:pool.length,employers:new Set(pool.map(j=>P.companyKey(j.company))).size,matched:Object.values(data.jobs).filter(j=>j.recommended&&!isHidden(j)&&!companyBlocked(j.company)).length};}
   function isBlocked(job){
+    if(companyBlocked(job.company)||isHidden(job))return true;
     const clearance=knownAnswer('clearance_status');
     return job.clearance==='existing'&&(clearance==='None'||job.clearanceLevel==='Top Secret'&&clearance==='Secret')||!!job.citizenshipEvidence&&knownAnswer('us_citizen')==='No'&&/must|required|only/i.test(job.citizenshipEvidence);
   }
@@ -595,8 +628,9 @@
       return value;
     }
     const restored=decode(bundle.data);
+    if(data.managedSources?.length){const changed=restored.sourceManifestVersion!==data.sourceManifestVersion;restored.managedSources=structuredClone(data.managedSources);restored.sourceManifestVersion=data.sourceManifestVersion;if(changed)restored.lastPull=null;}
     if(!Array.isArray(restored.profile.skills)||!Array.isArray(restored.profile.bases)||!restored.profile.resumes)throw new Error('The backup profile is incomplete.');
-    data=restored;data.businessProfile||={};data.businessLeads||={};data.settings||={autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12};
+    data=restored;data.jobPool||={};data.businessPool||={};applyVisibility();data.businessProfile||={};data.businessLeads||={};data.settings||={autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12};
     data.settings.codexAutoDraft??=true;
     for(const [id,d] of Object.entries(data.drafts))if(d.stage!=='submitted')reconcileDraft(id);
     refreshMatches();await save({replace:true});emit();return data;
@@ -627,8 +661,8 @@
     if(automated&&(!data.profile.name||!data.profile.email||!resumeURL(data.profile.resumes[d.resumeTrack])))return false;
     d.approved=true;d.approvedVersion=d.version;d.approvedAt=Date.now();d.stage='approved_for_handoff';d.snapshot={version:d.version,job:structuredClone(j),values:structuredClone(d.values),coverLetter:d.coverLetter,note:d.note,base:d.base,resume:data.profile.resumes[d.resumeTrack],attachments:structuredClone(d.attachments||{})};d.history.push({at:Date.now(),event:'Approved application package version '+d.version});save();emit();return true;
   }
-  function archive(id,reason){data.archived[id]={reason,at:Date.now()};const d=data.drafts[id];if(d){d.approved=false;if(d.stage!=='submitted')reconcileDraft(id);}save();emit();}
-  function restore(id){delete data.archived[id];const d=data.drafts[id];if(d){d.approved=false;reconcileDraft(id);}save();emit();}
+  function archive(id,reason){return hideJob(id,reason);}
+  function restore(id){return hideJob(id,'Restored',false);}
   async function recordSubmission(id,version,receipt){
     const d=data.drafts[id];if(!d||d.stage==='submitted')return false;
     if(!receipt?.message||!receipt?.at)throw Error('An employer confirmation is required.');
@@ -640,8 +674,8 @@
     d.history.push({at:Date.now(),event:'Employer confirmed application receipt'});await save();emit();return true;
   }
   function markSubmitted(id){const d=data.drafts[id];if(!d?.approved||d.approvedVersion!==d.version||data.archived[id])return false;d.stage='submitted';d.submittedAt=Date.now();d.submissionEvidence='User confirmed completion on employer site';d.history.push({at:Date.now(),event:'User recorded submission'});save();emit();return true;}
-  function importJob(raw){const job=normalize(raw,{id:'manual',name:raw.source||'Manual import',kind:'manual'});if(!job)throw new Error('A valid HTTP(S) listing URL and title are required.');const previous=Object.values(data.jobs).find(j=>canonical(j.url)===canonical(job.url));if(previous)return previous;data.jobs[job.id]=job;save();emit();return job;}
-  function setSource(id,enabled){data.sourceState[id]||={};data.sourceState[id].enabled=enabled;save();emit();}
+  function importJob(raw){const job=normalize(raw,{id:'manual',name:raw.source||'Manual import',kind:'manual'});if(!job)throw new Error('A valid HTTP(S) listing URL and title are required.');if(companyBlocked(job.company))throw Error(job.company+' is blocked. Unblock the company to import this role.');const previous=Object.values(data.jobs).find(j=>canonical(j.url)===canonical(job.url));if(previous)return previous;data.jobs[job.id]=job;save();emit();return job;}
+  function setSource(id,enabled){data.sourceState[id]||={};data.sourceState[id].enabled=enabled;refreshMatches();promotePool();refreshMatches();save();emit();}
   function addSource(kind,board,name){if(!['greenhouse','lever','ashby'].includes(kind)||!/^[a-zA-Z0-9_-]{1,80}$/.test(board))throw new Error('Use a valid board identifier, not a full URL.');const id=kind+'-'+board;if(allSources().some(s=>s.id===id||s.kind===kind&&s.board===board))throw new Error('That employer board is already listed.');data.customSources.push({id,kind,board,name:name.trim()||board,group:'Direct employers',enabled:true,interval:HOUR,home:kind==='greenhouse'?`https://boards.greenhouse.io/${board}`:kind==='lever'?`https://jobs.lever.co/${board}`:`https://jobs.ashbyhq.com/${board}`,note:'User-added public employer board.'});save();emit();}
   function matchesQuery(job,query){
     const hay=(job.title+' '+job.company+' '+job.location+' '+job.description).toLowerCase();
@@ -649,5 +683,5 @@
     const groups=[[]];for(const token of orGroups){if(token.toUpperCase()==='OR')groups.push([]);else if(token.toUpperCase()!=='AND')groups.at(-1).push(token);}
     return groups.some(group=>group.every(token=>{const neg=token.startsWith('-'),term=(neg?token.slice(1):token).replace(/^"|"$/g,'').toLowerCase();return !term?true:neg?!hay.includes(term):hay.includes(term);}));
   }
-  window.JobEngine={setCoverLetter,jobDecision,businessDecision,setDiscoveryRules,saveBusinessLead,importBusinessLead,recordSubmission,refreshMatches,setBusinessProfile,categories:M.categories,applyCodexDraft,exportWorkspace,importWorkspace,init,get data(){return data;},get busy(){return busy;},subscribe(fn){listeners.push(fn);},sources:allSources,sourceEnabled,pull,prepare,prepareBest,save,emit,missingGroups,answer,updateDraft,approve,archive,restore,markSubmitted,importJob,setSource,addSource,matchesQuery,isBlocked,text,safeURL,normalize,parsePay,resumeURL,setProfile,importProfile,resolveFact,refreshQuestionSets,formFields,questionCatalog:()=>K.catalog,factDefinition:key=>factDefinitions[key]||null,fieldMeaning};
+  window.JobEngine={searchStats,companyBlocked,isHidden,blockCompany,hideJob,mergeVisibilityPolicy,setCoverLetter,jobDecision,businessDecision,setDiscoveryRules,saveBusinessLead,importBusinessLead,recordSubmission,refreshMatches,setBusinessProfile,categories:M.categories,applyCodexDraft,exportWorkspace,importWorkspace,init,get data(){return data;},get busy(){return busy;},subscribe(fn){listeners.push(fn);},sources:allSources,sourceEnabled,pull,prepare,prepareBest,save,emit,missingGroups,answer,updateDraft,approve,archive,restore,markSubmitted,importJob,setSource,addSource,matchesQuery,isBlocked,text,safeURL,normalize,parsePay,resumeURL,setProfile,importProfile,resolveFact,refreshQuestionSets,formFields,questionCatalog:()=>K.catalog,factDefinition:key=>factDefinitions[key]||null,fieldMeaning};
 })();

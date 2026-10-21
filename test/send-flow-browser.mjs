@@ -14,6 +14,7 @@ try{
   const path=new URL(route.request().url()).pathname,method=route.request().method();
   if(path==='/api/health')return route.fulfill({json:{app:'america-companion',signedIn:true,message:'Synthetic connected companion'}});
   if(path==='/api/workspace')return route.fulfill({json:method==='GET'?{workspace:null,revision:null}:{revision:'test',savedAt:Date.now()}});
+  if(path==='/api/automation/exclusions')return route.fulfill({json:method==='PUT'?route.request().postDataJSON():{employerPreferences:{},jobVisibility:{}}});
   if(path==='/api/automation')return route.fulfill({json:{applications:task?[task]:[]}});
   if(path==='/api/automation/apply'){
    prepared=route.request().postDataJSON();assert.equal(prepared.authorization.reviewed,true);assert.equal(prepared.authorization.createEmployerAccount,true);sends++;

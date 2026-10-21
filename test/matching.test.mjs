@@ -69,3 +69,13 @@ test('benefit tags require positive listing evidence',()=>{
  assert.equal(M.tags(job).includes('per_diem'),false);assert(M.tags(job).includes('otdr'));assert(M.tags(job).includes('government'));
  job.perDiem='Per diem and hotel provided';assert(M.tags(job).includes('per_diem'));assert(M.tags(job).includes('hotel'));
 });
+
+test('extensive travel is opt-in/out and ranges are labeled without claiming guaranteed 100% travel',()=>{
+ const j=match('Low Voltage Technician','This role requires extensive nationwide travel. Fiber splicing, OTDR testing, cabling and telecom communications. No security clearance required.');
+ assert.equal(j.travel100,false);assert.equal(j.travelExtensive,true);assert.match(j.travelTerms,/% not stated/);assert.equal(M.intake(j,{allowExtensiveTravel:true}).accepted,true);assert.equal(M.intake(j,{allowExtensiveTravel:false}).accepted,false);
+ const ranged=match('Traveling Fiber Technician','Travel 75–100% of the time. Fiber splicing, OTDR testing, cabling and telecom communications. No security clearance required.');assert.equal(ranged.travel100,false);assert.equal(ranged.travelTerms,'75–100% travel');assert.equal(M.intake(ranged,{allowExtensiveTravel:false}).accepted,false);assert.equal(M.intake(ranged,{allowExtensiveTravel:true}).accepted,true);
+});
+test('government and FAA filters are user-controlled, independent and reversible',()=>{
+ const gov=match('Electronics Technician','100% travel. FAA infrastructure contract for a government agency. Fiber splicing, OTDR testing, cabling and telecom communications. No security clearance required.');
+ assert.equal(M.intake(gov,{sector:'all',excludeFAA:false}).accepted,true);assert.equal(M.intake(gov,{sector:'private'}).accepted,false);assert.equal(M.intake(gov,{excludeFAA:true}).accepted,false);assert.equal(M.intake(gov,{sector:'all',excludeFAA:false}).accepted,true);
+});

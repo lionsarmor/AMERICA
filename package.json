@@ -5,8 +5,8 @@
   "scripts": {
     "start": "node companion/server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check companion/auto-apply.mjs && node --check site/automation.js && node --check site/cover-letter.js && node --check site/matching.js && node --check site/companion.js && node --check site/engine.js && node --check site/workbench.js && python3 scripts/check-public.py",
-    "test:browser": "node test/browser-regression.mjs && node test/submission-browser.mjs && node test/send-flow-browser.mjs && node test/auto-apply-browser.mjs && node test/automation-bridge-browser.mjs"
+    "check": "node --check site/employer-policy.js && node --check scripts/public-listing-adapters.mjs && node --check scripts/refresh-travel-feed.mjs && node --check companion/auto-apply.mjs && node --check site/automation.js && node --check site/cover-letter.js && node --check site/matching.js && node --check site/companion.js && node --check site/engine.js && node --check site/workbench.js && python3 scripts/check-public.py",
+    "test:browser": "node test/browser-regression.mjs && node test/submission-browser.mjs && node test/send-flow-browser.mjs && node test/auto-apply-browser.mjs && node test/automation-bridge-browser.mjs && node test/discovery-browser.mjs"
   },
   "repository": {
     "type": "git",

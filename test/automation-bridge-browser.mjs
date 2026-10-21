@@ -9,6 +9,7 @@ await context.route('**/*',async route=>{
  const u=new URL(route.request().url());
  if(u.pathname==='/api/health')return route.fulfill({json:{app:'america-companion',signedIn:true,message:'Test worker'}});
  if(u.pathname==='/api/workspace')return route.fulfill({json:route.request().method()==='GET'?{workspace:null,revision:null}:{revision:'test',savedAt:Date.now()}});
+ if(u.pathname==='/api/automation/exclusions')return route.fulfill({json:route.request().method()==='PUT'?route.request().postDataJSON():{employerPreferences:{},jobVisibility:{}}});
  if(u.pathname==='/api/automation')return route.fulfill({json:{applications:task?[task]:[]}});
  if(u.pathname==='/api/automation/apply'){
   applies++;request=route.request().postDataJSON();task={id:'bridge-task',jobId:request.job.id,version:request.version,status:'running',message:'Applying',events:[],fields:[]};return route.fulfill({json:task});

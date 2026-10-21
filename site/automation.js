@@ -2,7 +2,7 @@
 (() => {
  'use strict';
  const E=window.JobEngine,esc=escapeHTML,local=['127.0.0.1','localhost'].includes(location.hostname),origin='http://127.0.0.1:4317',hosted='https://lionsarmor.github.io';
- const tasks={},polling=new Set();let companionWindow,bridgeTimer;
+ const tasks={},polling=new Set();let companionWindow,bridgeTimer,policyTimer,policyWorking=false,policySignature='';
  const running=t=>['queued','running','sending'].includes(t?.status);
  async function api(path,options={}){const response=await fetch('/api/automation'+path,{...options,headers:{'Content-Type':'application/json','X-America-Request':'1'},signal:AbortSignal.timeout(15000)});const data=await response.json();if(!response.ok)throw Error(data.error||'Application worker unavailable.');return data;}
  function changed(){E.emit();}
@@ -26,6 +26,7 @@
  }
  async function encode(file){const bytes=new Uint8Array(await file.arrayBuffer());let str='';for(let i=0;i<bytes.length;i+=16384)str+=String.fromCharCode(...bytes.subarray(i,i+16384));return {name:file.name,type:file.type,base64:btoa(str)};}
  async function requestFor(id){
+  if(E.companyBlocked(E.data.jobs[id]?.company)||E.isHidden(E.data.jobs[id]))throw Error('This company or job is excluded.');
   const d=structuredClone(E.data.drafts[id]),j=E.data.jobs[id],facts={};
   if(!d?.approved||d.approvedVersion!==d.version)throw Error('Review this application before applying.');
   for(const q of E.questionCatalog()){const f=E.resolveFact(q.key,j);if(f.known)facts[q.key]=f.value;}
@@ -64,10 +65,16 @@
  async function apply(id){
   if(!local){openWorker(id);return;}
   const prior=tasks[id];if(prior&&!['cancelled','blocked'].includes(prior.status)){view(id);void poll(prior);return;}
-  const request=await requestFor(id),task=await api('/apply',{method:'POST',body:JSON.stringify(request)});await remember(task);view(id);void poll(task);
+  await syncPolicy();const request=await requestFor(id),task=await api('/apply',{method:'POST',body:JSON.stringify(request)});await remember(task);view(id);void poll(task);
+ }
+ async function syncPolicy(){
+  if(!local||policyWorking)return;const snapshot={employerPreferences:E.data.employerPreferences,jobVisibility:E.data.jobVisibility},sig=JSON.stringify(snapshot);if(sig===policySignature)return;policyWorking=true;
+  try{const result=await api('/exclusions',{method:'PUT',body:JSON.stringify(snapshot)});if(!result?.employerPreferences)throw Error('Exclusions could not be synchronized.');policySignature=JSON.stringify(result);await E.mergeVisibilityPolicy(result);}finally{policyWorking=false;}
  }
  async function init(){
   if(!local){for(const [id,d] of Object.entries(E.data.drafts))if(d.automation)tasks[id]={...d.automation,jobId:id};return;}
+  try{const policy=await api('/exclusions');if(policy?.employerPreferences)await E.mergeVisibilityPolicy(policy);await syncPolicy();}catch{}
+  E.subscribe(()=>{clearTimeout(policyTimer);policyTimer=setTimeout(()=>syncPolicy().catch(()=>{}),200);});
   const match=location.hash.match(/^#connect=([a-zA-Z0-9-]{36})$/);
   if(match&&window.opener){
    const nonce=match[1],parent=window.opener;let received=false;
@@ -77,15 +84,16 @@
      const {workspace,request,trackJobId}=event.data;if(workspace?.format!=='america-workspace-v1'||(!trackJobId&&request?.authorization?.reviewed!==true))throw Error('Invalid application transfer.');
      // Preserve the private workspace's other applications and newer saved answers.
      const previous=await E.exportWorkspace(),incoming=workspace.data;
-     incoming.jobs={...previous.data.jobs,...incoming.jobs};incoming.drafts={...previous.data.drafts,...incoming.drafts};
+     incoming.jobs={...previous.data.jobs,...incoming.jobs};incoming.jobPool={...previous.data.jobPool,...incoming.jobPool};incoming.businessPool={...previous.data.businessPool,...incoming.businessPool};incoming.drafts={...previous.data.drafts,...incoming.drafts};
      for(const [key,d] of Object.entries(previous.data.drafts))if(d.stage==='submitted')incoming.drafts[key]=d;
      incoming.businessLeads={...previous.data.businessLeads,...incoming.businessLeads};
+     const P=window.JobbiesEmployerPolicy;incoming.employerPreferences=P.merge(previous.data.employerPreferences,incoming.employerPreferences);incoming.jobVisibility=P.merge(previous.data.jobVisibility,incoming.jobVisibility);
      for(const [key,f] of Object.entries(previous.data.answers))if((f.confirmedAt||0)>(incoming.answers[key]?.confirmedAt||0))incoming.answers[key]=f;
      if(request&&incoming.drafts[request.job.id]?.stage==='submitted')throw Error('This application was already submitted.');
      if(trackJobId&&previous.data.drafts[trackJobId])incoming.drafts[trackJobId]=previous.data.drafts[trackJobId];
      incoming.companionSyncRevision=previous.data.companionSyncRevision;await E.importWorkspace(workspace);
      if(request&&E.data.drafts[request.job.id].version!==request.version)throw Error('This application changed during transfer. Review the current version.');
-     let task;if(trackJobId){const records=await api('');task=records.applications.find(t=>t.jobId===trackJobId);if(!task)throw Error('This application is not on this computer.');task=await api('/'+task.id);}else task=await api('/apply',{method:'POST',body:JSON.stringify(request)});await remember(task);view(task.jobId);
+     await syncPolicy();let task;if(trackJobId){const records=await api('');task=records.applications.find(t=>t.jobId===trackJobId);if(!task)throw Error('This application is not on this computer.');task=await api('/'+task.id);}else task=await api('/apply',{method:'POST',body:JSON.stringify(request)});await remember(task);view(task.jobId);
      parent.postMessage({type:'jobbies-worker-started',nonce},hosted);
      const forward=()=>{const t=tasks[task.jobId];if(t)parent.postMessage({type:'jobbies-worker-task',nonce,task:t},hosted);};E.subscribe(forward);forward();void poll(task);history.replaceState(null,'','#review');
     }catch(error){parent.postMessage({type:'jobbies-worker-error',nonce,message:error.message},hosted);toast(error.message);}

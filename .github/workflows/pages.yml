@@ -38,6 +38,8 @@ jobs:
         run: |
           node --check site/cover-letter.js
           node --check site/matching.js
+          node --check site/employer-policy.js
+          node --check scripts/public-listing-adapters.mjs
           node --check site/app.js
           node --check site/question-library.js
           node --check site/answer-policy.js

@@ -341,3 +341,10 @@ input[type="checkbox"],input[type="radio"] { min-height:0; }
 .tag-filters summary { color:var(--accent); cursor:pointer; font-size:13px; }
 .tag-filters p { font-size:12px; color:var(--muted); margin:14px 0; }
 #live-cover-letter { line-height:1.65; min-height:240px; }
+
+/* Keep dismissal controls available on narrow job cards. */
+.card-actions{flex-wrap:wrap}.card-actions>.primary-button{flex-basis:100%}.card-actions>.secondary-button,.card-actions>.archive-button{flex:1;white-space:normal}
+
+.quick-search-controls{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:20px;margin:0 0 24px}.quick-search-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.quick-filter-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.quick-filter-grid label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:12px}.quick-filter-grid select,.quick-filter-grid input{width:100%;min-width:0;background:var(--bg);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:10px}.quick-search-toggles{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-top:16px}.quick-search-toggles label,.quick-sources label{display:flex;gap:8px;align-items:center;font-size:12px}.quick-sources{margin:14px 0}.quick-sources summary{cursor:pointer;font-size:12px;color:var(--accent)}.quick-sources>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}.quick-search-controls>small{display:block;font-size:11px;color:var(--muted)}@media(max-width:700px){.quick-filter-grid,.quick-sources>div{grid-template-columns:repeat(2,minmax(0,1fr))}.quick-search-controls{padding:14px}}@media(max-width:380px){.quick-filter-grid{grid-template-columns:1fr}}
+
+.quick-search-heading{flex-wrap:wrap}

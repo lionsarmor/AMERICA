@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {chromium} from 'playwright';
+import http from 'node:http';
+import {readFile} from 'node:fs/promises';
+import {resolve,extname} from 'node:path';
+const site=resolve('site'),server=http.createServer(async(req,res)=>{try{const path=resolve(site,'.'+new URL(req.url,'http://localhost').pathname.replace(/^\/$/,'/index.html'));if(!path.startsWith(site+'/'))throw Error();res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.json':'application/json','.css':'text/css'})[extname(path)]||'application/octet-stream');res.end(await readFile(path));}catch{res.statusCode=404;res.end('Not found');}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port,browser=await chromium.launch(),context=await browser.newContext();let pulls=0;
+const rows=[
+ {provider:'qa-private',externalId:'fiber',title:'Traveling Fiber Technician',company:'Acme Field',location:'United States',description:'100% travel. W-2 employment. Fusion splicing, OTDR, cabling, fiber and telecom. No security clearance required.',url:'https://acme.example/jobs/fiber'},
+ {provider:'qa-private',externalId:'electronics',title:'Low Voltage Technician',company:'Acme Field',location:'United States',description:'Extensive nationwide travel. W-2 employment. Cabling, fiber splicing, OTDR, telecom electronics and Linux. No security clearance required.',url:'https://acme.example/jobs/electronics'},
+ {provider:'qa-gov',externalId:'faa',title:'Traveling Fiber Technician',company:'Federal Fixture',location:'United States',description:'100% travel. W-2 employment. FAA government contract. Fusion splicing, OTDR, cabling, fiber and telecom. No security clearance required.',url:'https://gov.example/jobs/fiber'},
+ {provider:'qa-private',externalId:'office',title:'Software Engineer',company:'Acme Field',location:'New York office',description:'Office required. JavaScript Vue Node.js Linux Python.',url:'https://acme.example/jobs/office'}
+];
+await context.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.fulfill({json:{jobs:[]}}));
+await context.route('**/api/**',route=>route.fulfill({status:503,json:{error:'Synthetic test has no worker'}}));
+await context.route('**/job-sources.json',route=>route.fulfill({json:{version:'qa',sources:[['qa-private','Acme Field'],['qa-gov','Federal Fixture']].map(([id,company])=>({id,company,name:company,kind:'snapshot',url:'travel-feed.json',interval:21600000,enabled:true,group:'Direct employers',home:'https://example.com'}))}}));
+await context.route('**/travel-feed.json',route=>{pulls++;return route.fulfill({json:{generatedAt:new Date().toISOString(),sources:{'qa-private':{state:'ok',generatedAt:new Date().toISOString()},'qa-gov':{state:'ok',generatedAt:new Date().toISOString()}},jobs:rows}});});
+try{
+ const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base);await page.waitForSelector('#quick-government');await page.waitForFunction(()=>!JobEngine.busy);
+ await page.evaluate(async()=>{const E=JobEngine;E.data.settings.autoPull=false;E.data.settings.autoPrepare=false;E.data.jobs={};E.data.jobPool={};E.data.sourceState={};for(const s of E.sources())E.setSource(s.id,['qa-private','qa-gov'].includes(s.id));await E.answer('clearance_status','None');await E.setDiscoveryRules({...JobbiesMatching.defaultRules,sector:'private'});await E.pull({refresh:true});});
+ assert.equal(await page.locator('.live-job-card').count(),2);assert.equal(await page.evaluate(()=>Object.keys(JobEngine.data.jobPool).length),3,'Keep the qualified government option in the pool even when the current search excludes it');
+ assert.equal(await page.evaluate(()=>JobEngine.companyBlocked('Parsons')),false);assert.equal(await page.evaluate(()=>JobEngine.companyBlocked('Leidos')),false);
+ const before=pulls;await page.locator('#quick-government').selectOption('all');await page.waitForFunction(()=>document.querySelectorAll('.live-job-card').length===3);assert.equal(pulls,before,'Changing government filters must not fetch again');
+ await page.locator('#quick-faa').check();await page.waitForFunction(()=>document.querySelectorAll('.live-job-card').length===2);await page.locator('#quick-faa').uncheck();await page.waitForFunction(()=>document.querySelectorAll('.live-job-card').length===3);
+ await page.locator('#quick-travel').selectOption('100');await page.waitForFunction(()=>document.querySelectorAll('.live-job-card').length===2);assert.equal(pulls,before);
+ await page.locator('#quick-travel').selectOption('extensive');await page.waitForFunction(()=>document.querySelectorAll('.live-job-card').length===3);
+ await page.locator('.live-job-card').filter({has:page.getByRole('heading',{name:'Traveling Fiber Technician',exact:true})}).filter({hasText:'Acme Field'}).locator('[data-live-action=archive]').click();await page.waitForFunction(()=>document.querySelectorAll('.live-job-card').length===2);
+ await page.reload();await page.waitForSelector('#quick-government');assert.equal(await page.locator('.live-job-card').count(),2);await page.evaluate(()=>JobEngine.pull({refresh:true}));assert.equal(await page.locator('.live-job-card').count(),2,'A fresh pull must not resurrect a hidden job');
+ await page.locator('.live-job-card').filter({hasText:'Acme Field'}).locator('[data-live-action=block-company]').click();await page.waitForFunction(()=>document.querySelectorAll('.live-job-card').length===1);assert.equal(await page.evaluate(()=>JobEngine.companyBlocked('Acme Field, Inc.')),true);
+ const stale=await context.newPage();await stale.goto(base);await stale.waitForSelector('#quick-government');
+ await page.goto(base+'/#blocked_companies');await page.waitForSelector('[data-live-action=unblock-company]');await page.locator('[data-live-action=unblock-company]').click();await stale.evaluate(()=>JobEngine.save());
+ await page.goto(base);await page.waitForSelector('#quick-government');assert.equal(await page.evaluate(()=>JobEngine.companyBlocked('Acme Field')),false,'A stale tab must not restore an old company hide');assert.equal(await page.locator('.live-job-card').count(),2,'Unhiding a company must keep its individually hidden job hidden');
+ await page.locator('.quick-sources>summary').click();await page.locator('[data-source-toggle=qa-private]').uncheck();assert.equal(await page.locator('.live-job-card').count(),1);assert(await page.locator('.quick-sources').evaluate(el=>el.open));await page.locator('[data-source-toggle=qa-private]').check();assert.equal(await page.locator('.live-job-card').count(),2);
+ assert.deepEqual(errors,[]);console.log('PASS: broad cached pool, instant reversible government/FAA/travel/source filters without fetching, one-click job/company hiding, reload/repull persistence, stale-tab safety and no forced company exclusions. All listings synthetic.');
+}finally{await browser.close();await new Promise(r=>server.close(r));}
