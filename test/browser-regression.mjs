@@ -12,7 +12,7 @@ await context.route('**/travel-feed.json',r=>r.fulfill({json:{generatedAt:new Da
 await page.goto(base+'/#wizard');await page.waitForSelector('#wizard-form');
 await page.evaluate(async()=>{JobEngine.data.settings.autoPull=false;await JobEngine.save();});
 await page.locator('#wizard-form input[value="Yes"]').check();
-await page.waitForFunction(()=>JobEngine.resolveFact('us_citizen').value==='Yes');
+await page.waitForFunction(()=>JobEngine.resolveFact('us_citizen').value==='Yes'&&document.querySelector('#wizard-form')?.dataset.wizardId==='clearance_status');
 assert.equal(await page.locator('#wizard-form').getAttribute('data-wizard-id'),'clearance_status');
 await page.reload();await page.waitForSelector('#wizard-form');assert.equal(await page.evaluate(()=>JobEngine.resolveFact('us_citizen').value),'Yes');
 await page.locator('#wizard-form input[value="None"]').check();
