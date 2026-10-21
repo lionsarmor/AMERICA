@@ -40,7 +40,7 @@
     return list.slice(0,500);
   }
   function requestFor(id){
-    const d=E.data.drafts[id],j=E.data.jobs[id];if(!d||!j||!j.recommended||d.stage==='submitted'||d.questionsNeedRefresh||E.data.archived[id]||E.isBlocked(j))return null;
+    const d=E.data.drafts[id],j=E.data.jobs[id];if(!d||!j||!j.recommended||d.approved||d.automation&&d.automation.status!=='cancelled'||d.stage==='submitted'||d.questionsNeedRefresh||E.data.archived[id]||E.isBlocked(j))return null;
     const fields=d.fields.filter(f=>!f.incomplete&&!f.internal&&f.type!=='input_file'&&!window.ApplicantAnswerPolicy.restricted(f)&&d.fieldSources[f.id]!=='application_edit'&&(d.values[f.id]===undefined||d.values[f.id]===null||d.values[f.id]===''||Array.isArray(d.values[f.id])&&!d.values[f.id].length)).map(f=>({id:f.id,question:f.label,context:f.context||'',type:f.type,options:f.options||[],key:f.key}));
     if(d.coverLetterSource!=='codex_draft'&&d.coverLetterSource!=='application_edit')fields.unshift({id:'jobbies_cover_letter',key:'cover_letter',question:'Write a concise, tailored first-person cover letter for this position. Use only supplied candidate evidence. Return a complete letter with greeting and closing, ready for the applicant to review.',context:'Focus on the relevant work, not generic enthusiasm. Do not invent accomplishments or promises.',type:'textarea',options:[]});
     if(!fields.length)return null;
@@ -87,7 +87,7 @@
     booting=false;
     E.subscribe(()=>{clearTimeout(syncTimer);if(!booting)syncTimer=setTimeout(backup,600);schedule();});
     schedule();notify();
-    if(enabled){const note=document.querySelector('#workspace-storage-note');if(note)note.textContent='Local browser + private computer backup · Employer-site submission';await E.save();await backup();}
+    if(enabled){const note=document.querySelector('#workspace-storage-note');if(note)note.textContent='Private browser worker · Automatic applications';await E.save();await backup();}
     setInterval(connect,30000);
   }
   function panel(){
@@ -164,5 +164,5 @@
       catch(error){toast('Import failed: '+error.message);}
     }
   });
-  window.AmericaCompanion={canSubmit,prepareSubmission,state,init,panel,applicationPanel,fieldEvidence,draft,requestFor};
+  window.AmericaCompanion={evidence,canSubmit,prepareSubmission,state,init,panel,applicationPanel,fieldEvidence,draft,requestFor};
 })();

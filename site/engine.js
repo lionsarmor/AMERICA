@@ -449,7 +449,7 @@
     const j=data.jobs[id];if(!j||data.archived[id])return;
     const prior=data.drafts[id];if(prior?.stage==='submitted')return prior;
     if(prior&&!prior.requirementsChanged&&!prior.questionsNeedRefresh&&!options.forceQuestions){addEligibilityQuestions(prior.fields,j);reconcileDraft(id);return prior;}
-    let fields=baselineFields(),formStatus='Employer form still to verify',formVerified=false,rawForm=null,extras={dynamicFields:[],notes:[]};
+    let fields=baselineFields(),formStatus='Your profile and resume are prepared. Jobbies completes the employer form when you apply.',formVerified=false,rawForm=null,extras={dynamicFields:[],notes:[]};
     if(j.kind==='greenhouse'){
       try{
         const source=allSources().find(s=>s.id===j.sourceId);
@@ -457,8 +457,8 @@
         if(!Array.isArray(payload.questions))throw new Error('Published form questions were not supplied.');
         rawForm=Object.fromEntries(['questions','location_questions','compliance','demographic_questions','data_compliance'].filter(k=>payload[k]!==undefined).map(k=>[k,structuredClone(payload[k])]));
         const parsed=formFields(payload,j);fields=parsed.fields;extras={dynamicFields:parsed.dynamicFields,notes:parsed.notes};
-        formVerified=true;formStatus='Complete published question text and help text loaded. Employer-site consent and dynamic location validation still need review.';
-      }catch{formStatus='The complete employer form could not be retrieved. Core fields are prepared; review the original form before sending.';}
+        formVerified=true;formStatus='Employer questions loaded. Jobbies fills the live form using your saved profile.';
+      }catch{formStatus='Your profile is prepared. Jobbies reads and completes the live employer form when you apply.';}
     }
     addEligibilityQuestions(fields,j);
     const draft={jobId:id,version:(prior?.version||0)+1,createdAt:prior?.createdAt||Date.now(),fields,values:{},fieldSources:{},formStatus,formVerified,rawForm,formExtras:extras,questionVersion,questionsNeedRefresh:false,approved:false,stage:'preparing',resumeTrack:j.track,base:prior?.base||data.profile.bases[0],note:prior?.note||'',coverLetter:prior?.coverLetter||'',coverLetterSource:prior?.coverLetterSource||'',coverLetterEvidence:prior?.coverLetterEvidence,history:[...(prior?.history||[]),{at:Date.now(),event:prior?'Full employer questions refreshed':'Application package prepared'}]};
@@ -621,9 +621,10 @@
     if(changed)data.knowledgeRevision=(data.knowledgeRevision||1)+1;
     d.note=note;d.base=base;d.approved=false;d.version++;d.requirementsChanged=false;for(const jobId of Object.keys(data.drafts))reconcileDraft(jobId);save();emit();
   }
-  function approve(id){
+  function approve(id,{automated=false}={}){
     const d=data.drafts[id],j=data.jobs[id];if(!d||!j||data.archived[id]||d.stage==='submitted')return false;
-    reconcileDraft(id);if(d.missing.length||d.questionsNeedRefresh||isBlocked(j)||d.requirementsChanged)return false;
+    reconcileDraft(id);if((!automated&&(d.missing.length||d.questionsNeedRefresh))||isBlocked(j)||d.requirementsChanged)return false;
+    if(automated&&(!data.profile.name||!data.profile.email||!resumeURL(data.profile.resumes[d.resumeTrack])))return false;
     d.approved=true;d.approvedVersion=d.version;d.approvedAt=Date.now();d.stage='approved_for_handoff';d.snapshot={version:d.version,job:structuredClone(j),values:structuredClone(d.values),coverLetter:d.coverLetter,note:d.note,base:d.base,resume:data.profile.resumes[d.resumeTrack],attachments:structuredClone(d.attachments||{})};d.history.push({at:Date.now(),event:'Approved application package version '+d.version});save();emit();return true;
   }
   function archive(id,reason){data.archived[id]={reason,at:Date.now()};const d=data.drafts[id];if(d){d.approved=false;if(d.stage!=='submitted')reconcileDraft(id);}save();emit();}

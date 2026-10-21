@@ -4,6 +4,7 @@ import { dirname, resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { createApplicationRunner } from './application-runner.mjs';
+import { createAutoApply } from './auto-apply.mjs';
 import { loginStatus } from './runtime.mjs';
 import { normalizeRequest, digest, reason } from './reasoner.mjs';
 
@@ -22,6 +23,7 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
   const workDir = resolve(dataDir, 'reasoning');
   await mkdir(workDir, { recursive: true, mode: 0o700 });
   const applications=await createApplicationRunner({directory:resolve(dataDir,'applications')});
+  const automation=await createAutoApply({directory:resolve(dataDir,'automation'),reasoner,workingDirectory:workDir,legacyLedgerPath:resolve(dataDir,'applications/receipts.json')});
   const session = randomBytes(32).toString('hex'), tasks = new Map(), cache = new Map();
   const previousRun=JSON.parse(await readFile(resolve(dataDir,'last-run.json'),'utf8').catch(()=>'null'));
   if(previousRun?.key&&previousRun.result)cache.set(previousRun.key,previousRun.result);
@@ -58,11 +60,20 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
       if (url.pathname.startsWith('/api/')) {
         if (!(req.headers.cookie || '').split(';').some(c => c.trim() === `america_session=${session}`)) return json(res, 401, { error: 'Open the private Jobbies workspace first.' });
         if (!['GET', 'HEAD'].includes(req.method) && (req.headers.origin !== origin || req.headers['x-america-request'] !== '1' || !req.headers['content-type']?.startsWith('application/json'))) return json(res, 403, { error: 'A same-origin application request is required.' });
-        if (url.pathname === '/api/health' && req.method === 'GET') return json(res, 200, { app: 'america-companion', version: 1, ...await getAuth(), active: [...tasks.values()].filter(t => ['queued', 'running'].includes(t.status)).length });
+        if (url.pathname === '/api/health' && req.method === 'GET') return json(res, 200, { app: 'america-companion', version: 2, automaticApplications: true, ...await getAuth(), active: [...tasks.values()].filter(t => ['queued', 'running'].includes(t.status)).length });
         if (url.pathname === '/api/workspace' && req.method === 'GET') {
           const saved = await readFile(resolve(dataDir, 'workspace.json'), 'utf8').catch(() => 'null'); const workspace = JSON.parse(saved); return json(res, 200, { workspace, revision: workspace?.storageRevision || null });
         }
         if (url.pathname === '/api/workspace' && req.method === 'PUT') { const value = validateWorkspace(await readBody(req)), revision = randomBytes(16).toString('hex'); await atomic('workspace.json', async () => { const current = JSON.parse(await readFile(resolve(dataDir, 'workspace.json'), 'utf8').catch(() => 'null')); if ((current?.storageRevision || null) !== (value.baseRevision || null)) throw new Error('Another window has a newer backup. Restore it or choose this browser version.'); const { baseRevision, ...bundle } = value; return { ...bundle, storageRevision: revision }; }); return json(res, 200, { savedAt: Date.now(), revision }); }
+        if(url.pathname==='/api/automation'&&req.method==='GET')return json(res,200,{applications:automation.list()});
+        if(url.pathname==='/api/automation/apply'&&req.method==='POST')return json(res,202,await automation.apply(await readBody(req)));
+        if(url.pathname.startsWith('/api/automation/')){
+          const [id,operation]=url.pathname.slice('/api/automation/'.length).split('/');
+          if(req.method==='GET')return json(res,200,automation.get(id));
+          if(req.method==='POST'&&operation==='resume')return json(res,202,await automation.resume(id,await readBody(req)));
+          if(req.method==='POST'&&operation==='interact')return json(res,200,await automation.interact(id,await readBody(req)));
+          if(req.method==='DELETE'){await automation.cancel(id);return json(res,200,{cancelled:true});}
+        }
         if(url.pathname==='/api/applications/prepare'&&req.method==='POST')return json(res,202,await applications.prepare(await readBody(req)));
         if(url.pathname.startsWith('/api/applications/')){
           const [id,operation]=url.pathname.slice('/api/applications/'.length).split('/');
@@ -96,7 +107,7 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
     } catch (error) { return json(res, error.code === 'ENOENT' ? 404 : 400, { error: error.code === 'ENOENT' ? 'File not found.' : error.message.slice(0, 300) }); }
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
-  return { server, port: server.address().port, close: async () => { stopping = true; await applications.close(); for (const task of tasks.values()) task.controller?.abort(); await pendingWrites.catch(() => {}); await new Promise(resolve => server.close(resolve)); } };
+  return { server, port: server.address().port, close: async () => { stopping = true; await automation.close(); await applications.close(); for (const task of tasks.values()) task.controller?.abort(); await pendingWrites.catch(() => {}); await new Promise(resolve => server.close(resolve)); } };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const app = await createCompanion();

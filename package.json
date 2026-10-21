@@ -1,12 +1,12 @@
 {
   "name": "jobbies",
   "version": "1.0.0",
-  "description": "A personal job-search workspace for US remote work and domestic or international travel contracts. Discover openings, rank pay and fit, prepare application packages, answer repeated questions once, and review before submitting on the employer site.",
+  "description": "Curated technical travel jobs, reusable profile answers, and reviewed automatic browser applications.",
   "scripts": {
     "start": "node companion/server.mjs",
     "test": "node --test test/*.test.mjs",
-    "check": "node --check site/cover-letter.js && node --check site/matching.js && node --check site/companion.js && node --check site/engine.js && node --check site/workbench.js && python3 scripts/check-public.py",
-    "test:browser": "node test/browser-regression.mjs && node test/submission-browser.mjs && node test/send-flow-browser.mjs"
+    "check": "node --check companion/auto-apply.mjs && node --check site/automation.js && node --check site/cover-letter.js && node --check site/matching.js && node --check site/companion.js && node --check site/engine.js && node --check site/workbench.js && python3 scripts/check-public.py",
+    "test:browser": "node test/browser-regression.mjs && node test/submission-browser.mjs && node test/send-flow-browser.mjs && node test/auto-apply-browser.mjs && node test/automation-bridge-browser.mjs"
   },
   "repository": {
     "type": "git",

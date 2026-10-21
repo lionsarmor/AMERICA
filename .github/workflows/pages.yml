@@ -42,6 +42,8 @@ jobs:
           node --check site/question-library.js
           node --check site/answer-policy.js
           node --check site/companion.js
+          node --check site/automation.js
+          node --check companion/auto-apply.mjs
           node --check site/engine.js
           node --check site/workbench.js
       - name: Verify public artifact
