@@ -52,6 +52,7 @@
   }
   function render(){
     if(!ready||!active)return;
+    const currentFilters=dom('.job-filters');if(currentFilters)filtersOpen=currentFilters.open;
     if(businessMode){renderBusinessWorkspace();return;}
     dom('.app').classList.toggle('wizard-view',['wizard','answers','intelligence','profile','business','sources','search_rules','review'].includes(tab));
     dom('.app').classList.toggle('shortlist-view',tab==='opportunities');
@@ -82,7 +83,7 @@
     <div class="job-grid">${slice.length?slice.map(jobCard).join(''):`<div class="empty-state">${icon(tab==='review'?'file':'search')}<h3>${tab==='opportunities'?'Your next move starts here.':'Nothing here yet.'}</h3><p>${tab==='opportunities'?'Find new jobs or adjust your categories. Unmatched listings stay outside recommendations; your intake rules always apply.':'Change your filters, pull jobs, or import a listing from any source.'}</p><div class="empty-actions"><button class="primary-button" data-live-action="pull">Find new jobs</button><button class="secondary-button" data-live-view="${tab==='opportunities'?'review':'discovered'}">${tab==='opportunities'?'See preparation queue':'See all discoveries'}</button></div></div>`}</div>
     ${slice.length<list.length?`<div class="load-more">${button('more',`Show more (${slice.length} of ${list.length})`)}</div>`:''}
     <p class="workspace-footnote">Prepared packages are not submitted applications. Employer forms may include additional questions, consent, or assessments.</p>`;
-    dom('.job-filters').addEventListener('toggle',event=>{filtersOpen=event.target.open;});
+    dom('.job-filters').addEventListener('toggle',event=>{if(event.target.isConnected)filtersOpen=event.target.open;});
     dom('#live-sector').value=sector;dom('#live-arrangement').value=arrangement;dom('#live-match').value=matchMode;
     dom('#live-role').value=role;dom('#live-pay').value=pay;dom('#live-clearance').value=clearanceFilter;dom('#live-source').value=sourceFilter;
   }
