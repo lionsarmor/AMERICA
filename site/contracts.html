@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en" data-theme="liberty">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e1115">
+  <meta name="description" content="Jobbies — your personal workspace for finding work that fits your skills, income goals, and life.">
+  <title>Jobbies Contracts — Business opportunities</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+  <script src="question-library.js" defer></script>
+  <script src="answer-policy.js" defer></script>
+  <script src="matching.js" defer></script>
+  <script src="cover-letter.js" defer></script>
+  <script src="engine.js" defer></script>
+  <script src="companion.js" defer></script>
+  <script src="workbench.js" defer></script>
+</head>
+<body>
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H5v18h14V8zM14 3v6h5M8 13h8M8 17h5"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><path d="M4 8v13h16V8M9 12h6"/><rect x="2" y="3" width="20" height="5" rx="1"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M16 4a3 3 0 0 1 0 6M18 13a6 6 0 0 1 4 5v3"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v11H3zM9 21v-8h6v8"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 12-7 12S5 15 5 10a7 7 0 0 1 14 0Z"/><circle cx="12" cy="10" r="2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 9 4v6c0 6-9 10-9 10S3 18 3 12V6z"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M3 6h5m4 0h9M3 18h11m4 0h3"/><circle cx="10" cy="6" r="2"/><circle cx="16" cy="18" r="2"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.7 7.3L22 12l-7.3 2.7L12 22l-2.7-7.3L2 12l7.3-2.7Z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+  </svg>
+  <a href="#main" class="skip-link">Skip to opportunities</a>
+  <aside class="sidebar">
+    <a class="brand" href="#" aria-label="Jobbies home"><span class="brand-star" aria-hidden="true"><svg><use href="#i-file"/></svg></span><span>jobbies<small>GOOD WORK. MORE LIFE.</small></span></a>
+    <div class="workspace-label">YOUR JOB SEARCH</div>
+    <nav aria-label="Main navigation" id="main-navigation">
+      <button class="nav-item active" data-view="opportunities"><svg><use href="#i-grid"/></svg>Recommended jobs<span class="nav-count" id="opportunity-count">0</span></button>
+      <button class="nav-item live-only-nav" data-live-view="discovered"><svg><use href="#i-search"/></svg>Find jobs</button>
+      <button class="nav-item live-only-nav" data-live-view="search_rules"><svg><use href="#i-sliders"/></svg>Job intake rules</button>
+      <button class="nav-item" data-view="saved"><svg><use href="#i-bookmark"/></svg>Saved jobs<span class="nav-count" id="saved-count">0</span></button>
+      <button class="nav-item" data-view="review"><svg><use href="#i-file"/></svg>Review applications<span class="nav-count" id="review-count">0</span></button>
+      <button class="nav-item" data-view="applications"><svg><use href="#i-check"/></svg>Applications</button>
+      <div class="nav-group-label">MAKE IT YOURS</div>
+      <button class="nav-item live-only-nav" data-live-view="wizard"><svg><use href="#i-sliders"/></svg>Build my profile<span class="nav-count" id="wizard-count">0</span></button>
+      <button class="nav-item live-only-nav" data-live-view="answers"><svg><use href="#i-check"/></svg>My answers</button>
+      <button class="nav-item" data-view="profile"><svg><use href="#i-user"/></svg>Profile & resumes</button>
+      <a class="nav-item" href="contracts.html"><svg><use href="#i-users"/></svg>Business contracts ↗</a>
+      <button class="nav-item live-only-nav" data-live-view="intelligence"><svg><use href="#i-sparkle"/></svg>Application assistant</button>
+      <button class="nav-item live-only-nav" data-live-view="sources"><svg><use href="#i-grid"/></svg>Job sources</button>
+      <button class="nav-item" data-view="archive"><svg><use href="#i-archive"/></svg>Archive<span class="nav-count" id="archive-count">0</span></button>
+    </nav>
+    <button id="recruiting-button" hidden>Recruiting studio</button>
+    <div class="sidebar-bottom">
+      <div class="family-note"><span class="little-star">✦</span><strong>Make room for home.</strong><p>A great opportunity should fit the life you’re building.</p><button id="preferences-button">Your priorities <svg><use href="#i-arrow"/></svg></button></div>
+      <div class="account"><div class="avatar">Y</div><div><strong>Your workspace</strong><small>Saved on this device</small></div><span class="online-dot"></span></div>
+    </div>
+  </aside>
+  <div class="app">
+    <header class="topbar">
+      <button class="mobile-menu secondary-button" id="mobile-menu" aria-label="Open navigation" aria-expanded="false" aria-controls="main-navigation"><svg><use href="#i-grid"/></svg><span>Menu</span></button><div class="breadcrumb">Jobbies <span>/</span> <strong id="breadcrumb-current">Opportunities</strong></div>
+      <div class="top-actions"><span class="concept-badge"><span></span> YOUR WORKSPACE</span><button class="theme-trigger" id="theme-button" aria-label="Choose appearance"><svg><use href="#i-sun"/></svg><span id="theme-label">Orbit</span></button></div>
+    </header>
+    <main id="main" tabindex="-1">
+      <section class="hero">
+        <div class="hero-copy"><div class="eyebrow">A LITTLE LESS SEARCHING. A LITTLE MORE LIVING.</div><h1>Your next chapter.<br><span>Let’s find good work.</span></h1><p>Your skills, your goals, your next move. All in one place.</p><div class="hero-actions"><button class="primary-button" data-live-view="discovered">Explore jobs <svg><use href="#i-arrow"/></svg></button><button class="secondary-button" data-live-view="wizard">Answer a few questions</button></div></div>
+        <div class="mission-card"><div class="mission-header"><span class="mission-icon"><svg><use href="#i-home"/></svg></span><span>WORK THAT FITS YOUR LIFE</span></div><h2>Good pay.<br>Room for what matters.</h2><div class="mission-pills"><span>$100k+ target</span><span>Travel + remote</span></div><button id="mission-button">Your priorities <svg><use href="#i-arrow"/></svg></button></div>
+      </section>
+      <section class="summary-grid" aria-label="Workspace summary">
+        <button class="summary-card" data-summary="opportunities"><span class="summary-icon blue"><svg><use href="#i-grid"/></svg></span><div><span>Jobs discovered</span><strong id="summary-jobs">0 <small>discovered jobs</small></strong></div><svg class="summary-arrow"><use href="#i-arrow"/></svg></button>
+        <button class="summary-card" data-summary="wizard"><span class="summary-icon green"><svg><use href="#i-sliders"/></svg></span><div><span>A little input from you</span><strong id="summary-family">0 <small>answers needed</small></strong></div><svg class="summary-arrow"><use href="#i-arrow"/></svg></button>
+        <button class="summary-card" data-summary="review"><span class="summary-icon red"><svg><use href="#i-file"/></svg></span><div><span>Ready to review</span><strong id="summary-review">0 <small>application drafts</small></strong></div><svg class="summary-arrow"><use href="#i-arrow"/></svg></button>
+      </section>
+      <section id="sync-dock" class="sync-dock" aria-label="Job discovery controls">
+        <div><strong>Fresh opportunities, one click away.</strong><p id="pull-status" role="status">Loading your browser workspace…</p></div>
+        <div class="sync-actions"><button class="primary-button" id="pull-jobs-button"><svg><use href="#i-search"/></svg>Find new jobs</button><button class="secondary-button" data-live-view="sources">Manage sources</button></div>
+      </section>
+      <div id="wizard-alert" class="wizard-alert" hidden></div>
+      <section id="workbench" class="live-board" aria-label="Live job workspace" hidden></section>
+      <section class="board" aria-labelledby="board-title">
+        <div class="section-heading"><div><h2 id="board-title">Your next move</h2><p id="board-subtitle">Good opportunities, ranked around you.</p></div><button class="secondary-button" id="add-job-button"><svg><use href="#i-plus"/></svg>Add a job</button></div>
+        <div class="ranking-tabs" role="group" aria-label="Rank opportunities">
+          <button class="rank-tab active" data-sort="overall" aria-pressed="true">✦ Best overall</button>
+          <button class="rank-tab" data-sort="pay" aria-pressed="false">Highest pay</button>
+          <button class="rank-tab" data-sort="fit" aria-pressed="false">Best fit</button>
+          <button class="rank-tab" data-sort="family" aria-pressed="false">Family time</button>
+          <button class="rank-tab" data-sort="hiring" aria-pressed="false">Hiring prospects</button>
+        </div>
+        <div class="search-row"><label class="search-box"><svg><use href="#i-search"/></svg><input id="search" type="search" placeholder="Search roles, companies, agencies…" aria-label="Search jobs"></label><button class="secondary-button" id="filter-button" aria-expanded="false" aria-controls="filter-panel"><svg><use href="#i-sliders"/></svg>Filters</button></div>
+        <div class="filter-panel" id="filter-panel" hidden><label>Compensation<select id="pay-filter"><option value="0">All pay ranges</option><option value="100">At least $100k equivalent</option><option value="120">At least $120k equivalent</option></select></label><label>Security requirement<select id="security-filter"><option value="all">All requirements</option><option value="none">Explicitly no clearance</option><option value="sponsor">Sponsorship offered</option><option value="existing">Existing clearance required</option><option value="unknown">Needs clarification</option></select></label><button class="text-button" id="reset-filters">Reset filters</button></div>
+        <div class="results-toolbar"><div class="type-chips" role="group" aria-label="Job type"><button class="type-chip active" data-type="all" aria-pressed="true">All roles</button><button class="type-chip" data-type="travel" aria-pressed="false">Travel</button><button class="type-chip" data-type="remote" aria-pressed="false">Remote</button><button class="type-chip" data-type="contract" aria-pressed="false">Contracts</button></div><span id="result-count" aria-live="polite">6 opportunities</span></div>
+        <div class="sample-notice"><span class="sample-dot"></span>Concept preview · All employers, jobs, pay, and policies below are fictional examples.</div>
+        <div id="job-grid" class="job-grid"></div>
+      </section>
+      <footer><span><strong>Jobbies</strong> &nbsp; Work well. Live fully.</span><div class="footer-tools"><button class="text-button" id="workspace-mode">View design samples</button><button id="reset-demo" hidden>Reset demo</button></div><span id="workspace-storage-note">Saved answers stay in this browser · Employer-site submission</span></footer>
+    </main>
+  </div>
+  <dialog id="detail-dialog" class="detail-dialog"><div id="dialog-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

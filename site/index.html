@@ -10,6 +10,8 @@
   <script src="app.js" defer></script>
   <script src="question-library.js" defer></script>
   <script src="answer-policy.js" defer></script>
+  <script src="matching.js" defer></script>
+  <script src="cover-letter.js" defer></script>
   <script src="engine.js" defer></script>
   <script src="companion.js" defer></script>
   <script src="workbench.js" defer></script>
@@ -40,18 +42,20 @@
     <a class="brand" href="#" aria-label="Jobbies home"><span class="brand-star" aria-hidden="true"><svg><use href="#i-file"/></svg></span><span>jobbies<small>GOOD WORK. MORE LIFE.</small></span></a>
     <div class="workspace-label">YOUR JOB SEARCH</div>
     <nav aria-label="Main navigation" id="main-navigation">
-      <button class="nav-item active" data-view="opportunities"><svg><use href="#i-grid"/></svg>My shortlist<span class="nav-count" id="opportunity-count">0</span></button>
-      <button class="nav-item live-only-nav" data-live-view="discovered"><svg><use href="#i-search"/></svg>Find jobs</button>
-      <button class="nav-item" data-view="saved"><svg><use href="#i-bookmark"/></svg>Saved jobs<span class="nav-count" id="saved-count">0</span></button>
-      <button class="nav-item" data-view="review"><svg><use href="#i-file"/></svg>Review applications<span class="nav-count" id="review-count">0</span></button>
+      <button class="nav-item active" data-view="opportunities"><svg><use href="#i-grid"/></svg>Recommended jobs<span class="nav-count" id="opportunity-count">0</span></button>
+      <button class="nav-item" data-view="review"><svg><use href="#i-file"/></svg>Review & send<span class="nav-count" id="review-count">0</span></button>
+      <button class="nav-item live-only-nav" data-live-view="wizard"><svg><use href="#i-sliders"/></svg>Needs your input<span class="nav-count" id="wizard-count">0</span></button>
+      <a class="nav-item" href="contracts.html"><svg><use href="#i-users"/></svg>Business contracts ↗</a>
+      <details class="nav-settings"><summary>Profile & settings</summary>
       <button class="nav-item" data-view="applications"><svg><use href="#i-check"/></svg>Applications</button>
-      <div class="nav-group-label">MAKE IT YOURS</div>
-      <button class="nav-item live-only-nav" data-live-view="wizard"><svg><use href="#i-sliders"/></svg>Answer questions<span class="nav-count" id="wizard-count">0</span></button>
+      <button class="nav-item live-only-nav" data-live-view="search_rules"><svg><use href="#i-sliders"/></svg>Job intake rules</button>
+      <button class="nav-item" data-view="saved"><svg><use href="#i-bookmark"/></svg>Saved jobs<span class="nav-count" id="saved-count">0</span></button>
       <button class="nav-item live-only-nav" data-live-view="answers"><svg><use href="#i-check"/></svg>My answers</button>
       <button class="nav-item" data-view="profile"><svg><use href="#i-user"/></svg>Profile & resumes</button>
       <button class="nav-item live-only-nav" data-live-view="intelligence"><svg><use href="#i-sparkle"/></svg>Application assistant</button>
       <button class="nav-item live-only-nav" data-live-view="sources"><svg><use href="#i-grid"/></svg>Job sources</button>
       <button class="nav-item" data-view="archive"><svg><use href="#i-archive"/></svg>Archive<span class="nav-count" id="archive-count">0</span></button>
+      </details>
     </nav>
     <button id="recruiting-button" hidden>Recruiting studio</button>
     <div class="sidebar-bottom">

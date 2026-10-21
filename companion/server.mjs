@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir, rename, stat, realpath } from 'node:fs/prom
 import { dirname, resolve, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
+import { createApplicationRunner } from './application-runner.mjs';
 import { loginStatus } from './runtime.mjs';
 import { normalizeRequest, digest, reason } from './reasoner.mjs';
 
@@ -20,6 +21,7 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
   const workDir = resolve(dataDir, 'reasoning');
   await mkdir(workDir, { recursive: true, mode: 0o700 });
+  const applications=await createApplicationRunner({directory:resolve(dataDir,'applications')});
   const session = randomBytes(32).toString('hex'), tasks = new Map(), cache = new Map();
   const previousRun=JSON.parse(await readFile(resolve(dataDir,'last-run.json'),'utf8').catch(()=>'null'));
   if(previousRun?.key&&previousRun.result)cache.set(previousRun.key,previousRun.result);
@@ -61,6 +63,13 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
           const saved = await readFile(resolve(dataDir, 'workspace.json'), 'utf8').catch(() => 'null'); const workspace = JSON.parse(saved); return json(res, 200, { workspace, revision: workspace?.storageRevision || null });
         }
         if (url.pathname === '/api/workspace' && req.method === 'PUT') { const value = validateWorkspace(await readBody(req)), revision = randomBytes(16).toString('hex'); await atomic('workspace.json', async () => { const current = JSON.parse(await readFile(resolve(dataDir, 'workspace.json'), 'utf8').catch(() => 'null')); if ((current?.storageRevision || null) !== (value.baseRevision || null)) throw new Error('Another window has a newer backup. Restore it or choose this browser version.'); const { baseRevision, ...bundle } = value; return { ...bundle, storageRevision: revision }; }); return json(res, 200, { savedAt: Date.now(), revision }); }
+        if(url.pathname==='/api/applications/prepare'&&req.method==='POST')return json(res,202,await applications.prepare(await readBody(req)));
+        if(url.pathname.startsWith('/api/applications/')){
+          const [id,operation]=url.pathname.slice('/api/applications/'.length).split('/');
+          if(req.method==='GET')return json(res,200,applications.get(id));
+          if(req.method==='POST'&&operation==='submit')return json(res,202,await applications.submit(id,await readBody(req)));
+          if(req.method==='DELETE'){await applications.cancel(id);return json(res,200,{cancelled:true});}
+        }
         if (url.pathname === '/api/draft' && req.method === 'POST') {
           if (!(await getAuth()).signedIn) return json(res, 409, { error: 'Codex is not signed in on this computer. Run codex login, then reconnect.' });
           const request = normalizeRequest(await readBody(req)); if (!request.fields.length) return json(res, 400, { error: 'No unanswered questions are available for reasoning.' });
@@ -82,12 +91,12 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
       if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method not allowed.' });
       const site = resolve(root, 'site'), requested = resolve(site, '.' + decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname));
       if (!requested.startsWith(site + sep) || !(await realpath(requested)).startsWith(site + sep) || !(await stat(requested)).isFile()) return json(res, 404, { error: 'File not found.' });
-      if (url.pathname === '/' || url.pathname === '/index.html') res.setHeader('Set-Cookie', `america_session=${session}; HttpOnly; SameSite=Strict; Path=/`);
+      if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/contracts.html') res.setHeader('Set-Cookie', `america_session=${session}; HttpOnly; SameSite=Strict; Path=/`);
       res.writeHead(200, { 'Content-Type': mime[extname(requested)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(req.method === 'HEAD' ? undefined : await readFile(requested));
     } catch (error) { return json(res, error.code === 'ENOENT' ? 404 : 400, { error: error.code === 'ENOENT' ? 'File not found.' : error.message.slice(0, 300) }); }
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
-  return { server, port: server.address().port, close: async () => { stopping = true; for (const task of tasks.values()) task.controller?.abort(); await pendingWrites.catch(() => {}); await new Promise(resolve => server.close(resolve)); } };
+  return { server, port: server.address().port, close: async () => { stopping = true; await applications.close(); for (const task of tasks.values()) task.controller?.abort(); await pendingWrites.catch(() => {}); await new Promise(resolve => server.close(resolve)); } };
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const app = await createCompanion();

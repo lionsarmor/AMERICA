@@ -20,21 +20,33 @@ Both original resumes and the resume-derived starting profile are hosted on the 
 
 Private source history, project notes, and the prepared import bundle remain in the ignored local `private/` and `data/` directories. The two explicitly hosted DOCX originals are the only document exceptions to the repository ignore rules. Clearing browser storage removes saved data. A different browser or domain starts a separate workspace.
 
-## Discovery and applications
+## Jobs and business contracts
 
-Five sources are connected by default: Remotive, Jobicy, and public Greenhouse employer boards for CoreWeave, Astranis, and Anduril. Add public Greenhouse, Lever, or Ashby employer boards through Job sources. Major and specialist boards without a live integration have search links and manual import.
+**Jobbies Jobs** at `/` prioritizes technical roles explicitly advertising 100% travel: field service, fiber/telecom, network infrastructure, data centers, and electronics. Software must explicitly support remote work; office, hybrid, and unconfirmed-remote software are rejected. Senior roles and requirements unsupported by the profile stay outside recommendations. Scores describe evidence, not a probability of being hired.
 
-Pulls respect individual source cooldowns, retain jobs on failure, and auto-prepare up to twelve matching packages. Published Greenhouse questions are loaded where available. The Job Wizard presents one question at a time. Radio choices and single-choice dropdowns save and advance automatically. Text answers advance on Enter or when the completed field loses focus; multiline answers use Ctrl+Enter. Multiple selections have a Continue control. Back restores prior answers, including after a reload. The All answers page (`#answers`) shows profile facts, saved and inferred responses, and the complete answer set for each application, with editing links. Questions arising from prepared jobs take priority; equivalent questions are combined. A local knowledge layer normalizes question wording, negation, country scope, and employer-specific choice IDs. A confirmed US citizenship answer covers equivalent citizenship prompts and derives standard US employment-authorization, immigration-sponsorship, and US-person export-status answers. It asks the foundational fact before dependent questions, recognizes previously answered company-specific variants, and preserves explicit overrides. Derivations are recalculated when their source facts change and show their origin in the answer library and application review. Additional conditions such as clearance, other-country authorization, documents, and consent remain separate. This knowledge layer works locally. The optional private Codex companion below can also draft answers using the supplied resume and confirmed-answer evidence. New questions appear as jobs are pulled, without replacing the step or answer currently being typed. Skipped questions stay available for later. Saved answers update matching unsent drafts and invalidate prior approvals. Submitted snapshots remain frozen.
+**Jobbies Contracts** at `/contracts.html` has its own company profile, intake rules, business lead collection, and proposal pipeline. It accepts explicit C2C, 1099, subcontracting, and project-bid opportunities. W-2 contract assignments remain in Jobs; listings offering both arrangements can appear in both systems. Add client leads manually, save scope notes, generate an editable proposal from company details, and track new/qualifying/draft/sent/won/lost stages. Sent is a manual record of delivery; generating a proposal does not send it. Company services, commercial terms, and business filters do not change employee preferences. Both systems share source connections and browser backup infrastructure.
 
-The common-question library contains 271 complete prompts. All answers offers search, category, and filled/unknown filters; unused library entries are optional. Resume evidence supplies supported facts and descriptions, with dated roles used conservatively for experience estimates. Imported forms preserve employer descriptions, help text, and section context. Fields that contain only an unexplained heading are flagged for employer-form review instead of appearing as wizard questions. Hidden location coordinates and alternative resume text/file controls do not create extra quiz steps. Existing unsent drafts refresh their question sets; submitted snapshots remain frozen.
+The main navigation focuses on **Recommended jobs**, **Review & send**, and **Needs your input**. Profile, source configuration, history, and advanced settings stay available under Profile & settings. Multi-select tags cover technical disciplines, travel, skills, government/private sectors, work arrangement, clearance, pay, per diem, lodging, rotation, and PTO; selected tags persist and match together.
 
-Search supports quoted phrases, OR, and -exclusions. Filter work type, source, published pay, and clearance. Compare overall fit, pay, skills, hiring signals, and family time. Match scores are keyword evidence rather than calibrated hiring probabilities. Employer terms and unknown eligibility need review.
+Open **Job intake rules** or **Contract intake rules** to choose technical disciplines, minimum advertised travel, government/government-contractor/private/corporate/startup sector, work arrangement, clearance, minimum hourly/annual pay, published-pay requirements, and excluded keywords. Intake applies before storing feed results or preparing applications. Unknown travel never counts as 100%. Disabling remote software also avoids remote-only source requests when neither workspace needs them. Public feeds without provider-side filters still require downloading their responses; unsuitable listings are discarded locally before preparation or AI use.
 
-Auto-pull works while the app is open and checks overdue work on return. It is not a server scheduler. Final forms, dynamic questions, assessments, consent, and submission remain on the employer's site. A submission is recorded only after explicit user confirmation. Applications can be archived and restored without resubmitting.
+Discovery includes a targeted Parsons technical-travel snapshot plus Remotive, Jobicy, and Greenhouse boards for CoreWeave, Astranis, and Anduril. The deployment fetches public Parsons Workday listings every six hours and displays the employer-feed timestamp. Snapshots older than 72 hours are rejected. Add other public Greenhouse, Lever, or Ashby boards in Sources. Other boards have clearly labeled search links and manual import; broad business procurement coverage and credentialed government feeds are not connected.
+
+Every prepared application gets a tailored cover-letter draft from supported resume/profile evidence. The local Codex companion automatically improves the letter and drafts eligible unanswered employer questions, with evidence references and no invented declarations. Manual letter edits are preserved. Cover-letter fields fill automatically, file fields receive a generated PDF during supported local delivery, and editable RTF letters are available for manual delivery.
+
+Profile questions add reusable facts once. Confirmed answers and supported resume facts automatically fill equivalent employer questions, including employer-specific option IDs. Employer-specific questions stay in application review. Radio/dropdown answers save immediately; text saves on Continue, Enter, or navigation. Saved facts are merged across tabs, persist after reload, and update unsent drafts. Submitted snapshots remain frozen. All answers supports review and corrections. Unknown eligibility declarations are never invented.
+
+Automatic pulls run while the app is open. Accepted jobs can be prepared into a review queue; browsing Contracts does not start employee preparation or Codex drafting. Source failures retain prior results and are reported visibly.
+
+## Application delivery
+
+The private companion can fill supported hosted Greenhouse forms in a local browser, automatically prepare the completed-form preview when a ready application is opened, and send only after the user presses **Send application**. The preview includes the cover-letter text and file review, with an Edit package option. A detected employer confirmation is required to record a successful send. Durable receipts prevent duplicate sends, including after restart. Custom controls, verification challenges, unmapped required fields, and uncertain receipts stop the automated path and require employer-site review. Preview preparation blocks non-read network requests.
+
+GitHub Pages cannot run the browser worker. Hosted-only users, Workday/Lever/other unsupported forms, and business proposals still use manual delivery. Opening a link never counts as submission. No real application was sent during testing.
 
 ## Deployment
 
-The GitHub Actions workflow validates JavaScript and the public artifact, then publishes only `site/` to GitHub Pages on each push to `main`. The deployed files include the two requested resume originals and matching starting profile. Local application records, extra documents, private source history, and the import bundle are excluded. Six fictional design examples are available separately through View design samples.
+The GitHub Actions workflow runs unit and browser regression tests, refreshes public travel listings, validates the public artifact, then publishes only `site/` on each push to `main` and every six hours. A failed source refresh leaves the previous deployment in place. The deployed files include both workspaces, public employer listings, the two requested resume originals, and the matching starting profile. Local application records, extra documents, private source history, and the import bundle are excluded. Six fictional design examples are available separately through View design samples.
 
 The original owner-private ChatGPT Site is a separate deployment. This repository is the source for the GitHub Pages version.
 
@@ -48,6 +60,7 @@ Requires Node.js 22+ and a signed-in Codex CLI. On the owner's computer a user s
 
 ```sh
 npm ci
+npx playwright install chromium
 npm start
 ```
 
@@ -66,8 +79,9 @@ The worker listens only on loopback, accepts authenticated same-origin requests,
 ```sh
 npm test
 npm run check
+npm run test:browser
 ```
 
-Tests cover reasoning validation, local access, file boundaries, backup persistence and conflicts, caching, cancellation, and malformed workspaces. Browser verification also covers automatic drafting, evidence review, stale-result protection, corrections, frozen submissions, attachment transfer, fresh-browser restore, and mobile layout. A live Codex smoke test used synthetic candidate evidence successfully. Remote phone access and automatic source-code maintenance are not connected; a private authenticated remote backend is a later step.
+Tests cover reasoning validation, local access, file boundaries, backup persistence and conflicts, caching, cancellation, and malformed workspaces. Browser verification also covers automatic drafting, evidence review, stale-result protection, corrections, frozen submissions, attachment transfer, fresh-browser restore, and mobile layout. A live Codex smoke test used synthetic candidate evidence successfully. Remote access to the private companion and automatic source-code maintenance are not connected; a private authenticated remote backend is a later step.
 
 Official integration references: [Codex SDK](https://learn.chatgpt.com/docs/codex-sdk), [Codex CLI options](https://learn.chatgpt.com/docs/cli/reference).

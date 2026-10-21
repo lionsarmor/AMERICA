@@ -2,6 +2,8 @@ name: Deploy Jobbies to GitHub Pages
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '15 */6 * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -26,8 +28,16 @@ jobs:
         run: |
           npm ci --ignore-scripts --omit=optional
           npm test
+      - name: Browser regression checks
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:browser
+      - name: Refresh technical travel listings
+        run: node scripts/refresh-travel-feed.mjs
       - name: Check JavaScript
         run: |
+          node --check site/cover-letter.js
+          node --check site/matching.js
           node --check site/app.js
           node --check site/question-library.js
           node --check site/answer-policy.js
