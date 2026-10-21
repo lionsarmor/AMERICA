@@ -1,8 +1,10 @@
-# AMERICA
+# Jobbies
 
 A personal job-search workspace for US remote work and domestic or international travel contracts. Discover openings, rank pay and fit, prepare application packages, answer repeated questions once, and review before submitting on the employer site.
 
 **Live site:** https://lionsarmor.github.io/AMERICA/
+
+The interface follows Orbit’s charcoal and copper styling, with a shortlist, collapsible filters, and labeled navigation on phones. Existing browser storage and backup formats remain compatible.
 
 ## Run locally
 
@@ -42,7 +44,7 @@ The distinction between US work authorization, visa sponsorship, and export stat
 
 The companion adds automatic Codex drafts, evidence in application review, saved-answer context, workspace transfer, and private local backups. The public GitHub Pages site remains a static application. Open **Intelligence** to download your current workspace, open the private app, and import that backup. It preserves saved answers, jobs, archives, application histories, submitted snapshots, and uploaded files. A fresh browser on the private app restores the companion backup automatically.
 
-Requires Node.js 22+ and a signed-in Codex CLI. On the owner's computer a user service and **AMERICA Private** desktop launcher are installed. The private app is available at http://127.0.0.1:4317/#intelligence on that computer.
+Requires Node.js 22+ and a signed-in Codex CLI. On the owner's computer a user service and **Jobbies Private** desktop launcher are installed. The private app is available at http://127.0.0.1:4317/#intelligence on that computer.
 
 ```sh
 npm ci

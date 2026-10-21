@@ -44,7 +44,7 @@
     }
   }
   async function setProfile(input,resumes={}){
-    if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Choose an AMERICA profile JSON file.');
+    if(!input||typeof input!=='object'||Array.isArray(input))throw new Error('Choose a Jobbies profile JSON file.');
     const prior=data.profile,p={...prior};
     for(const k of ['name','email','phone','linkedin','github','portfolio'])if(k in input)p[k]=String(input[k]??'').slice(0,500);
     for(const k of ['linkedin','github','portfolio'])p[k]=safeURL(p[k]);
@@ -493,7 +493,7 @@
     return {format:'america-workspace-v1',exportedAt:Date.now(),data:await encode(structuredClone(data))};
   }
   async function importWorkspace(bundle){
-    if(bundle?.format!=='america-workspace-v1'||!bundle.data?.profile||!bundle.data.jobs||!bundle.data.drafts||!bundle.data.answers)throw new Error('Choose an AMERICA workspace backup.');
+    if(bundle?.format!=='america-workspace-v1'||!bundle.data?.profile||!bundle.data.jobs||!bundle.data.drafts||!bundle.data.answers)throw new Error('Choose a Jobbies workspace backup.');
     for(const d of Object.values(bundle.data.drafts))if(!bundle.data.jobs[d.jobId]||!Array.isArray(d.fields)||!d.values||!Array.isArray(d.missing))throw new Error('The backup contains an incomplete application.');
     function decode(value){
       if(value?.$americaFile===1){if(typeof value.base64!=='string'||value.base64.length>14*1024*1024)throw new Error('Invalid attachment in backup.');return new File([Uint8Array.from(atob(value.base64),c=>c.charCodeAt(0))],String(value.name),{type:String(value.type||'')});}

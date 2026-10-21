@@ -11,7 +11,7 @@ const json = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'a
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
 export function validateWorkspace(bundle) {
   const d = bundle?.data;
-  if (bundle?.format !== 'america-workspace-v1' || !d?.profile || typeof d.profile.name !== 'string' || !d.jobs || !d.drafts || !d.answers || Array.isArray(d.jobs) || Array.isArray(d.drafts)) throw new Error('Choose an AMERICA workspace backup.');
+  if (bundle?.format !== 'america-workspace-v1' || !d?.profile || typeof d.profile.name !== 'string' || !d.jobs || !d.drafts || !d.answers || Array.isArray(d.jobs) || Array.isArray(d.drafts)) throw new Error('Choose a Jobbies workspace backup.');
   for (const draft of Object.values(d.drafts)) if (!d.jobs[draft.jobId] || !Array.isArray(draft.fields) || !draft.values || !Array.isArray(draft.missing)) throw new Error('A saved application is incomplete.');
   if (JSON.stringify(bundle).includes('"__proto__"')) throw new Error('Invalid workspace keys.');
   return bundle;
@@ -48,13 +48,13 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
   const server = http.createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
     const host = req.headers.host;
-    if (host !== `127.0.0.1:${server.address().port}` && host !== `localhost:${server.address().port}`) return json(res, 403, { error: 'Use the local AMERICA address.' });
+    if (host !== `127.0.0.1:${server.address().port}` && host !== `localhost:${server.address().port}`) return json(res, 403, { error: 'Use the local Jobbies address.' });
     const origin = `http://${host}`;
-    if ((req.headers.origin && req.headers.origin !== origin) || req.headers['sec-fetch-site'] === 'cross-site' && req.headers['sec-fetch-mode'] !== 'navigate') return json(res, 403, { error: 'Open AMERICA directly on this computer.' });
+    if ((req.headers.origin && req.headers.origin !== origin) || req.headers['sec-fetch-site'] === 'cross-site' && req.headers['sec-fetch-mode'] !== 'navigate') return json(res, 403, { error: 'Open Jobbies directly on this computer.' });
     let url; try { url = new URL(req.url, origin); } catch { return json(res, 400, { error: 'Invalid URL.' }); }
     try {
       if (url.pathname.startsWith('/api/')) {
-        if (!(req.headers.cookie || '').split(';').some(c => c.trim() === `america_session=${session}`)) return json(res, 401, { error: 'Open the private AMERICA workspace first.' });
+        if (!(req.headers.cookie || '').split(';').some(c => c.trim() === `america_session=${session}`)) return json(res, 401, { error: 'Open the private Jobbies workspace first.' });
         if (!['GET', 'HEAD'].includes(req.method) && (req.headers.origin !== origin || req.headers['x-america-request'] !== '1' || !req.headers['content-type']?.startsWith('application/json'))) return json(res, 403, { error: 'A same-origin application request is required.' });
         if (url.pathname === '/api/health' && req.method === 'GET') return json(res, 200, { app: 'america-companion', version: 1, ...await getAuth(), active: [...tasks.values()].filter(t => ['queued', 'running'].includes(t.status)).length });
         if (url.pathname === '/api/workspace' && req.method === 'GET') {
@@ -91,6 +91,6 @@ export async function createCompanion({ port = Number(process.env.AMERICA_PORT |
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const app = await createCompanion();
-  console.log(`AMERICA private workspace: http://127.0.0.1:${app.port}/#intelligence`);
+  console.log(`Jobbies private workspace: http://127.0.0.1:${app.port}/#intelligence`);
   for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => app.close().then(() => process.exit(0)));
 }

@@ -1,4 +1,4 @@
-name: Deploy AMERICA to GitHub Pages
+name: Deploy Jobbies to GitHub Pages
 on:
   push:
     branches: [main]
