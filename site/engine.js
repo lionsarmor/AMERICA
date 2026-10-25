@@ -43,13 +43,14 @@
   }
   const companyBlocked=company=>P.blocked(company,data?.employerPreferences);
   const isHidden=job=>P.hidden(job.url,data?.jobVisibility)||(!data?.jobVisibility?.[P.jobKey(job.url)]&&!!data?.archived?.[job.id]);
-  const jobDecision=job=>job.sources?.length&&job.sources.every(ref=>{const s=allSources().find(s=>s.id===ref.id);return s&&s.kind!=="manual"&&!sourceEnabled(s);})?{accepted:false,reasons:['Source disabled']}:companyBlocked(job.company)?{accepted:false,reasons:['Company blocked']} : isHidden(job)?{accepted:false,reasons:['Job hidden']} : M.intake(job,data.settings.discoveryRules||{});
+  const discoveryRules=()=>({...(data.settings.discoveryRules||{}),bases:data.profile?.bases||[]});
+  const jobDecision=job=>job.sources?.length&&job.sources.every(ref=>{const s=allSources().find(s=>s.id===ref.id);return s&&s.kind!=="manual"&&!sourceEnabled(s);})?{accepted:false,reasons:['Source disabled']}:companyBlocked(job.company)?{accepted:false,reasons:['Company blocked']} : isHidden(job)?{accepted:false,reasons:['Job hidden']} : M.intake(job,discoveryRules());
   const businessDecision=job=>companyBlocked(job.company)?{accepted:false,reasons:['Company blocked']} : isHidden(job)?{accepted:false,reasons:['Job hidden']} : M.intake({...job,...M.rank(job,data.profile,{...data.answers,work_arrangements:data.businessProfile?.arrangements?.length?{value:data.businessProfile.arrangements.map(a=>a==='c2c'?'C2C':'1099')}:undefined,target_roles:undefined,minimum_hourly:undefined},data.businessProfile),profileRecommended:undefined},data.settings.businessDiscoveryRules||{minimumTravel:0},true);
   function refreshMatches(){
     for(const job of [...Object.values(data.jobs),...Object.values(data.jobPool||{}),...Object.values(data.businessPool||{}),...Object.values(data.businessLeads||{})]){
       setMarket(job);
       Object.assign(job,M.classify(job,allSources().find(s=>s.id===job.sourceId)||{}));
-      Object.assign(job,M.rank(job,data.profile,data.answers));job.profileRecommended=job.recommended;const decision=jobDecision(job);job.discoveryEligible=decision.accepted;job.intakeReasons=decision.reasons;job.recommended=job.profileRecommended&&decision.accepted;
+      Object.assign(job,M.rank(job,data.profile,data.answers));job.placement=M.placement(job,data.profile?.bases||[]);job.profileRecommended=job.recommended;const decision=jobDecision(job);job.discoveryEligible=decision.accepted;job.intakeReasons=decision.reasons;job.recommended=job.profileRecommended&&decision.accepted;
     }
   }
   function applyVisibility(){
@@ -108,7 +109,7 @@
     data.knowledgeRevision=(data.knowledgeRevision||1)+1;
     data.profile=p;
     data.answerDeletedAt||={};for(const k of ['name','first_name','last_name','email','phone','linkedin','github','portfolio']){delete data.answers[k];data.answerDeletedAt[k]=Date.now();}
-    refreshMatches();
+    refreshMatches();promotePool();refreshMatches();
     for(const [id,d] of Object.entries(data.drafts))if(d.stage!=='submitted'){d.approved=false;d.version++;reconcileDraft(id);}
     await save();emit();
   }
@@ -205,7 +206,7 @@
     data.businessProfile||={};data.businessLeads||={};data.settings.discoveryRules||=structuredClone(M.defaultRules);data.settings.businessDiscoveryRules||={...structuredClone(M.defaultRules),minimumTravel:0};data.settings.arrangements||=['w2','1099','c2c'];data.answers.work_arrangements||=structuredClone(defaultAnswers.work_arrangements);
     applyVisibility();
     migrateAnswerKnowledge();
-    refreshMatches();
+    refreshMatches();promotePool();refreshMatches();
     // Refresh derived matching fields after parser improvements without another network pull.
     for(const job of Object.values(data.jobs)){job.description=text(job.description);job.rotation=rotationExcerpt(job.description);job.familyScore=job.rotation?65:job.pto?50:null;setMarket(job);}
     for(const id of Object.keys(data.drafts)){const d=data.drafts[id];if(d.stage!=='submitted'){if(d.questionVersion!==questionVersion){d.questionsNeedRefresh=true;d.approved=false;d.version++;}addEligibilityQuestions(d.fields,data.jobs[id]);reconcileDraft(id);}}
@@ -240,7 +241,7 @@
     job.title=text(job.title).slice(0,250);job.company=text(job.company||source.name).slice(0,180);job.location=text(job.location||'Location unconfirmed').slice(0,350);job.description=text(job.description);
     job.url=safeURL(job.url);if(!job.url||!job.title)return null;
     job.id=source.id+':'+job.externalId;job.sourceId=source.id;job.sourceName=source.name;job.kind=kind;job.observedAt=new Date().toISOString();job.sources=[{id:source.id,name:source.name,url:job.url}];
-    job.isTechnical=/fiber|fibre|splic|telecom|technician|network|software|developer|field service|infrastructure|commissioning|systems|data.?center|full.?stack|front.?end|back.?end/i.test(job.title);
+    job.isTechnical=/fiber|fibre|splic|telecom|technician|lineman|installer|network|software|developer|field service|infrastructure|commissioning|systems|data.?center|full.?stack|front.?end|back.?end|electronics/i.test(job.title);
     const title=job.title.toLowerCase(),body=job.description.toLowerCase();
     job.track=/fiber|splic|telecom|technician|field service|commissioning|data.?center/i.test(title)?'technician':'software';
     job.remote=!!job.remote||/\bremote\b/i.test(job.location);
@@ -265,7 +266,7 @@
     job.overall=Math.round(job.fit*.75+(job.payScore??40)*.15+(job.familyScore??35)*.1);
     job.seniorityReview=/principal|staff |director|vice president|\bVP\b/i.test(job.title);
     if(job.seniorityReview)job.overall-=12;
-    setMarket(job);Object.assign(job,M.classify(job,source));Object.assign(job,M.rank(job,data?.profile||{},data?.answers||{}));job.track=job.softwareRole?'software':'technician';job.profileRecommended=job.recommended;if(data){const decision=jobDecision(job);job.discoveryEligible=decision.accepted;job.intakeReasons=decision.reasons;job.recommended=job.profileRecommended&&decision.accepted;}job.descriptionFingerprint=job.description.slice(0,12000);return job;
+    setMarket(job);Object.assign(job,M.classify(job,source));Object.assign(job,M.rank(job,data?.profile||{},data?.answers||{}));job.placement=M.placement(job,data?.profile?.bases||[]);job.track=job.softwareRole?'software':'technician';job.profileRecommended=job.recommended;if(data){const decision=jobDecision(job);job.discoveryEligible=decision.accepted;job.intakeReasons=decision.reasons;job.recommended=job.profileRecommended&&decision.accepted;}job.descriptionFingerprint=job.description.slice(0,12000);return job;
   }
   async function request(url,source){
     for(let attempt=0;attempt<2;attempt++){
@@ -316,7 +317,7 @@
     }catch(error){Object.assign(st,{state:'error',lastAttempt:Date.now(),nextAllowed:Math.max(st.nextAllowed||0,Date.now()+15*60000),error:error.name==='TimeoutError'?'Source timed out; existing jobs retained.':error instanceof TypeError?'Connection or browser access failed; existing jobs retained.':error.message});return {source:source.name,error:st.error};}
     finally{await save();emit();}
   }
-  async function pull({businessOnly=false,refresh=false}={}){
+  async function pull({businessOnly=false,refresh=false,prepare=true}={}){
     if(busy)return {busy:true};
     const task=async()=>{
       busy=true;snapshotReads.clear();emit();
@@ -325,7 +326,7 @@
         const results=[];let index=0;
         await Promise.all(Array.from({length:Math.min(3,pending.length)},async()=>{while(index<pending.length){const s=pending[index++];results.push(await readSource(s));}}));
         if(pending.length)data.lastPull=Date.now();
-        if(data.settings.autoPrepare&&!businessOnly)await prepareBest();
+        if(prepare&&data.settings.autoPrepare&&!businessOnly)await prepareBest();
         const run={at:Date.now(),results,skipped:allSources().filter(sourceEnabled).length-pending.length};data.runs.unshift(run);data.runs=data.runs.slice(0,15);await save();return run;
       }finally{busy=false;emit();}
     };

@@ -6,17 +6,18 @@
   <meta name="theme-color" content="#0e1115">
   <meta name="description" content="Jobbies — your personal workspace for finding work that fits your skills, income goals, and life.">
   <title>Jobbies — Find work that fits your life</title>
-  <link rel="stylesheet" href="styles.css?v=20261021-pool">
+  <link rel="stylesheet" href="styles.css?v=20261022-chat">
   <script src="app.js" defer></script>
   <script src="question-library.js" defer></script>
   <script src="answer-policy.js" defer></script>
-  <script src="matching.js?v=20261021-pool" defer></script>
+  <script src="matching.js?v=20261022-bases" defer></script>
   <script src="cover-letter.js" defer></script>
   <script src="employer-policy.js?v=20261021-pool" defer></script>
-  <script src="engine.js?v=20261021-pool" defer></script>
+  <script src="engine.js?v=20261022-bases" defer></script>
   <script src="companion.js" defer></script>
   <script src="automation.js?v=20261021-pool" defer></script>
-  <script src="workbench.js?v=20261021-pool" defer></script>
+  <script src="agent.js?v=20261022-chat" defer></script>
+  <script src="workbench.js?v=20261022-chat" defer></script>
 </head>
 <body>
   <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -44,7 +45,8 @@
     <a class="brand" href="#" aria-label="Jobbies home"><span class="brand-star" aria-hidden="true"><svg><use href="#i-file"/></svg></span><span>jobbies<small>GOOD WORK. MORE LIFE.</small></span></a>
     <div class="workspace-label">YOUR JOB SEARCH</div>
     <nav aria-label="Main navigation" id="main-navigation">
-      <button class="nav-item active" data-view="opportunities"><svg><use href="#i-grid"/></svg>Recommended jobs<span class="nav-count" id="opportunity-count">0</span></button>
+      <button class="nav-item active" data-view="agent"><svg><use href="#i-sparkle"/></svg>Ask Jobbies</button>
+      <button class="nav-item" data-view="opportunities"><svg><use href="#i-grid"/></svg>Recommended jobs<span class="nav-count" id="opportunity-count">0</span></button>
       <button class="nav-item" data-view="review"><svg><use href="#i-file"/></svg>Review & send<span class="nav-count" id="review-count">0</span></button>
       <button class="nav-item live-only-nav" data-live-view="wizard"><svg><use href="#i-sliders"/></svg>Needs your input<span class="nav-count" id="wizard-count">0</span></button>
       <a class="nav-item" href="contracts.html"><svg><use href="#i-users"/></svg>Business contracts ↗</a>
@@ -56,6 +58,7 @@
       <button class="nav-item" data-view="profile"><svg><use href="#i-user"/></svg>Profile & resumes</button>
       <button class="nav-item live-only-nav" data-live-view="intelligence"><svg><use href="#i-sparkle"/></svg>Application assistant</button>
       <button class="nav-item live-only-nav" data-live-view="sources"><svg><use href="#i-grid"/></svg>Job sources</button>
+      <button class="nav-item live-only-nav" data-live-view="sites"><svg><use href="#i-pin"/></svg>Sites to join<span class="nav-count" id="sites-count"></span></button>
       <button class="nav-item" data-live-view="blocked_companies"><svg><use href="#i-shield"/></svg>Hidden companies</button>
       <button class="nav-item" data-view="archive"><svg><use href="#i-archive"/></svg>Hidden jobs<span class="nav-count" id="archive-count">0</span></button>
       </details>

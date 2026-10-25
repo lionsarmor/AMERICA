@@ -2,7 +2,7 @@
 (() => {
   const norm=s=>String(s||'').toLowerCase().replace(/[’‘]/g,"'");
   const categories=[['all','Best matches'],['travel_100','100% travel'],['travel_extensive','Nationwide / extensive travel'],['field','Field technician'],['fiber','Fiber & telecom'],['network','Network & systems'],['data_center','Data centers'],['electronics','Electronics'],['remote','Remote work'],['software','Software'],['business','Business contracts']];
-  const familyRules={field:/field (?:service |support )?(?:tech|engineer)|rollout technician|data cable technician|installation|commissioning|(?:engineering|electronics|deployment|communications) technician/i,fiber:/fiber|fibre|splic|telecom|cabling|low.voltage/i,network:/network (?:engineer|admin|technician|tech\b|installation|deployment|support|operations)|systems (?:admin|engineer)|noc |infrastructure (?:engineer|technician)/i,data_center:/data.?center|datacenter/i,electronics:/electronics|electronic|instrumentation|communications technician/i,software:/software|developer|full.?stack|front.?end|back.?end|web engineer/i};
+  const familyRules={field:/field (?:service |support )?(?:tech|engineer)|rollout technician|data cable technician|installation|commissioning|(?:engineering|electronics|deployment|communications) technician|lineman/i,fiber:/fiber|fibre|splic|telecom|cabling|low.voltage|outside plant|\bosp\b|\bcable (?:tech|technician|splicer)/i,network:/network (?:engineer|admin|technician|tech\b|installation|deployment|support|operations)|systems (?:admin|engineer)|noc |infrastructure (?:engineer|technician)/i,data_center:/data.?center|datacenter/i,electronics:/electronics|electronic|instrumentation|communications technician/i,software:/software|developer|full.?stack|front.?end|back.?end|web engineer/i};
   const skillRules=[['Fiber & splicing',/fiber|fibre|splic/],['OTDR',/\botdr\b/],['Cabling',/cabling|cat[56]|copper termination/],['Telecom',/telecom|communications|cutover/],['Linux',/\blinux\b/],['Python',/\bpython\b/],['JavaScript',/\bjavascript\b/],['Vue',/\bvue(?:\.js)?\b/],['Node.js',/\bnode(?:\.js)?\b/],['APIs',/\bapis?\b/],['SQL',/\bsql\b|postgres|mysql/],['Docker',/\bdocker\b/],['AWS',/\baws\b|amazon web services/]];
   const specialist=[['C++',/\bc\+\+/],['Rust',/\brust\b/],['React',/\breact(?:js|\.js)?\b/],['Java',/\bjava\b/],['C#/.NET',/c#|\.net\b/],['Go',/\bgolang\b|\bgo programming/],['Kubernetes',/\bkubernetes\b|\bk8s\b/],['Machine learning',/machine learning|\bml\b|deep learning|pytorch|tensorflow/],['Salesforce',/\bsalesforce\b/],['SAP',/\bsap\b/],['iOS/Swift',/\bswift\b|\bios\b/]];
   const sentences=s=>String(s||'').split(/\n|(?<=[.!?;])\s+/).map(x=>x.trim()).filter(Boolean);
@@ -77,20 +77,79 @@
     else if(clearanceUnknown){score-=25;gaps.push('Active clearance required; your clearance is unconfirmed');}
     if(job.marketExcluded){score=0;gaps.push('Outside your current work-location focus');}
     score=Math.max(0,Math.min(98,score));
-    const recommended=score>=60&&!senior&&!blocked&&!clearanceUnknown&&!job.marketExcluded&&supported.length>0&&!gaps.length;
+    const recommended=score>=60&&!senior&&!blocked&&!clearanceUnknown&&!job.marketExcluded&&supported.length>0;
     return {fit:score,overall:score,matchEvidence:evidence,matchReasons:reasons,matchGaps:gaps,seniorityReview:senior,recommended,matchTier:recommended?(score>=80?'Strong match':'Relevant match'):blocked?'Not eligible':'Outside recommendations'};
   }
+  const stateNames={al:'alabama',ak:'alaska',az:'arizona',ar:'arkansas',ca:'california',co:'colorado',ct:'connecticut',de:'delaware',fl:'florida',ga:'georgia',hi:'hawaii',id:'idaho',il:'illinois',in:'indiana',ia:'iowa',ks:'kansas',ky:'kentucky',la:'louisiana',me:'maine',md:'maryland',ma:'massachusetts',mi:'michigan',mn:'minnesota',ms:'mississippi',mo:'missouri',mt:'montana',ne:'nebraska',nv:'nevada',nh:'new hampshire',nj:'new jersey',nm:'new mexico',ny:'new york',nc:'north carolina',nd:'north dakota',oh:'ohio',ok:'oklahoma',or:'oregon',pa:'pennsylvania',ri:'rhode island',sc:'south carolina',sd:'south dakota',tn:'tennessee',tx:'texas',ut:'utah',vt:'vermont',va:'virginia',wa:'washington',wv:'west virginia',wi:'wisconsin',wy:'wyoming',dc:'district of columbia'};
   const defaultRules={minimumTravel:100,allowExtensiveTravel:true,excludeFAA:false,remoteSoftware:true,sector:'all',arrangement:'all',clearance:'exclude_active',minimumHourly:0,minimumAnnual:0,requirePay:false,excludeKeywords:'',disciplines:['field','fiber','network','data_center','electronics']};
+  const word=(text,phrase)=>!!phrase&&new RegExp('\\b'+String(phrase).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','i').test(text||'');
+  function parseBases(bases){
+    return (Array.isArray(bases)?bases:[]).map(raw=>{
+      const label=String(raw||'').trim();
+      const parts=label.split(',').map(s=>s.trim()).filter(Boolean);
+      const city=norm(parts[0]||'');
+      const token=norm(parts.slice(1).join(' '));
+      const found=stateNames[token]?[token,stateNames[token]]:Object.entries(stateNames).find(([,name])=>name===token);
+      return {label,city,state:found?found[0]:'',stateName:found?found[1]:''};
+    }).filter(b=>b.city);
+  }
+  function baseFit(job,bases){
+    const list=parseBases(bases),location=String(job.location||'');
+    const cities=list.filter(b=>word(location,b.city));
+    const mentioned=norm(location.split(',')[0]||'');
+    const states=cities.length?[]:list.filter(b=>{
+      if(!b.state||(!word(location,b.state)&&!word(location,b.stateName)))return false;
+      return mentioned===b.state||mentioned===b.stateName||/remote|nationwide|statewide|multiple|various/i.test(location);
+    });
+    return {cities,states,labels:[...cities,...states].map(b=>b.label)};
+  }
+  function requiresLivingAway(job,bases){
+    const hit=`${job.title}\n${job.description||''}`.match(/must (?:reside|live|be based) in ([^.\n;]{2,80})/i);
+    if(!hit)return false;
+    if(/\b(?:united states|u\.?s\.?a?|nationwide|anywhere)\b/i.test(hit[1]))return false;
+    return !parseBases(bases).some(b=>word(hit[1],b.city));
+  }
+  function employeeLane(job,r){
+    const place=baseFit(job,r.bases||[]);
+    const technical=(job.families||[]).some(f=>(r.disciplines||[]).includes(f));
+    const pct=job.travelMinimumPercent??job.travelPercent;
+    const min=Number(r.minimumTravel)||0;
+    const meetsTravel=!!job.travel100||(!!r.allowExtensiveTravel&&!!job.travelExtensive)||(min>0&&pct!=null&&pct>=min)||(min===0&&(!!job.travel100||!!job.travelExtensive||(pct!=null&&pct>0)));
+    const remote=!!job.remoteExplicit&&!job.hybrid&&(job.softwareRole?r.remoteSoftware!==false:technical||!!job.softwareRole);
+    const local=(place.cities.length>0||place.states.length>0)&&(technical||!!job.softwareRole);
+    return {technical,meetsTravel,remote,local,liveAway:requiresLivingAway(job,r.bases||[]),place};
+  }
+  function placement(job,bases){
+    const list=parseBases(bases),fit=baseFit(job,bases);
+    let kind='none',labels=fit.labels,primary=fit.cities[0]||fit.states[0]||null;
+    if(fit.cities.length)kind='local';
+    else if(fit.states.length)kind='state';
+    else if(job.travel100||job.travelExtensive){kind='travel';labels=list.map(b=>b.label);primary=list[0]||null;}
+    else if(job.remoteExplicit&&!job.hybrid){kind='remote';labels=list.map(b=>b.label);primary=list[0]||null;}
+    const index=primary?Math.max(0,list.findIndex(b=>b.label===primary.label)):999;
+    const kindRank={local:0,state:1,travel:2,remote:3,none:4}[kind];
+    const note=kind==='local'?`On site · ${primary.label}`:kind==='state'?`Statewide · ${labels.join(' · ')}`:kind==='travel'?`Travel · leave from ${labels.join(' · ')||'your bases'}`:kind==='remote'?`Remote · work from ${labels.join(' · ')||'your bases'}`:'Not at your bases';
+    return {kind,labels,primary:primary?.label||'',index,kindRank,note};
+  }
   function intake(job,rules={},business=false){
     const r={...defaultRules,...rules},reasons=[];
     if(r.excludeFAA&&job.customerFAA)reasons.push('FAA-related roles are excluded');
-    if(job.softwareRole&&!job.remoteExplicit)reasons.push('Office, hybrid, or unconfirmed-remote software is excluded');
-    if(business){if(!job.business)reasons.push('No explicit C2C, 1099, subcontract, or project-bid opportunity');}
-    else if(job.business&&!job.arrangements?.includes('w2'))reasons.push('Business-only opportunity goes to the Contracts system');
-    if(job.softwareRole){if(!r.remoteSoftware)reasons.push('Software intake is disabled');}
-    else {
-      if(!(job.families||[]).some(f=>r.disciplines.includes(f)))reasons.push('Outside your selected technical disciplines');
-      if(Number(r.minimumTravel)>0&&!(r.allowExtensiveTravel&&job.travelExtensive)&&((job.travelMinimumPercent??job.travelPercent)===null||(job.travelMinimumPercent??job.travelPercent)===undefined||(job.travelMinimumPercent??job.travelPercent)<Number(r.minimumTravel)))reasons.push('Does not explicitly advertise '+r.minimumTravel+'% travel');
+    if(business){
+      if(!job.business)reasons.push('No explicit C2C, 1099, subcontract, or project-bid opportunity');
+      if(job.softwareRole){if(!r.remoteSoftware)reasons.push('Software intake is disabled');}
+      else {
+        if(!(job.families||[]).some(f=>r.disciplines.includes(f)))reasons.push('Outside your selected technical disciplines');
+        if(Number(r.minimumTravel)>0&&!(r.allowExtensiveTravel&&job.travelExtensive)&&((job.travelMinimumPercent??job.travelPercent)===null||(job.travelMinimumPercent??job.travelPercent)===undefined||(job.travelMinimumPercent??job.travelPercent)<Number(r.minimumTravel)))reasons.push('Does not explicitly advertise '+r.minimumTravel+'% travel');
+      }
+    }else{
+      if(job.business&&!job.arrangements?.includes('w2'))reasons.push('Business-only opportunity goes to the Contracts system');
+      const lane=employeeLane(job,r);
+      if(lane.liveAway&&!lane.local)reasons.push('Requires you to live away from your bases');
+      if(job.softwareRole){
+        if(!r.remoteSoftware&&!lane.local)reasons.push('Software intake is disabled');
+        else if(!lane.remote&&!lane.local&&!lane.meetsTravel)reasons.push('Office, hybrid, or unconfirmed-remote software is excluded');
+      }else if(!lane.technical)reasons.push('Outside your selected technical disciplines');
+      else if(!lane.meetsTravel&&!lane.remote&&!lane.local)reasons.push(Number(r.minimumTravel)>0?'Does not explicitly advertise '+r.minimumTravel+'% travel and is not remote or at your bases':'Not a remote role, a travel role, or a role at your bases');
     }
     if(job.seniorityReview)reasons.push('Senior / leadership roles are excluded');
     if(r.clearance==='exclude_active'&&job.clearance==='existing')reasons.push('Active-clearance roles are excluded');
@@ -101,7 +160,8 @@
     if(r.requirePay&&!job.pay?.min)reasons.push('Published pay is required');
     if(job.pay?.currency==='USD'&&((job.pay.period==='hourly'&&Number(r.minimumHourly)>0&&(job.pay.max||job.pay.min)<Number(r.minimumHourly))||(/year|annual/.test(job.pay.period)&&Number(r.minimumAnnual)>0&&(job.pay.max||job.pay.min)<Number(r.minimumAnnual))))reasons.push('Published pay is below your minimum');
     const excluded=String(r.excludeKeywords||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);if(excluded.some(s=>(job.title+' '+job.description).toLowerCase().includes(s)))reasons.push('Matches an excluded keyword');
-    if(job.profileRecommended===false||job.profileRecommended===undefined&&job.recommended===false)reasons.push(...(job.matchGaps?.length?job.matchGaps:['Insufficient relevant resume evidence']));
+    if(job.marketExcluded)reasons.push('Outside your current work-location focus');
+    if((job.matchGaps||[]).includes('Known eligibility blocker'))reasons.push('Known eligibility blocker');
     return {accepted:!reasons.length,reasons};
   }
   const tagDefinitions=[...categories.filter(([id])=>!['all','business'].includes(id)),['government','Government work'],['government_contract','Government contractor'],['corporate','Corporate'],['startup','Startup'],['w2','W-2'],['c2c','C2C'],['1099','1099'],['contract','Contract assignment'],['no_clearance','No clearance'],['sponsor_clearance','Clearance sponsorship'],['screening','Public Trust / screening'],['published_pay','Published pay'],['per_diem','Per diem'],['hotel','Hotel / lodging'],['rotation','Rotation / home time'],['pto','Paid time off'],['fiber_skill','Fiber / splicing'],['otdr','OTDR'],['cabling','Cabling'],['linux','Linux'],['python','Python'],['javascript','JavaScript'],['node','Node.js']];
@@ -116,5 +176,5 @@
     for(const [id,name] of [['fiber_skill','Fiber & splicing'],['otdr','OTDR'],['cabling','Cabling'],['linux','Linux'],['python','Python'],['javascript','JavaScript'],['node','Node.js']])if(job.matchEvidence?.includes(name))result.push(id);
     return [...new Set(result)];
   }
-  globalThis.JobbiesMatching={tagDefinitions,tags,categories,classify,rank,intake,defaultRules};
+  globalThis.JobbiesMatching={tagDefinitions,tags,categories,classify,rank,intake,defaultRules,parseBases,baseFit,placement};
 })();

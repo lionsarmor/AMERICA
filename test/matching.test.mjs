@@ -75,6 +75,27 @@ test('extensive travel is opt-in/out and ranges are labeled without claiming gua
  assert.equal(j.travel100,false);assert.equal(j.travelExtensive,true);assert.match(j.travelTerms,/% not stated/);assert.equal(M.intake(j,{allowExtensiveTravel:true}).accepted,true);assert.equal(M.intake(j,{allowExtensiveTravel:false}).accepted,false);
  const ranged=match('Traveling Fiber Technician','Travel 75–100% of the time. Fiber splicing, OTDR testing, cabling and telecom communications. No security clearance required.');assert.equal(ranged.travel100,false);assert.equal(ranged.travelTerms,'75–100% travel');assert.equal(M.intake(ranged,{allowExtensiveTravel:false}).accepted,false);assert.equal(M.intake(ranged,{allowExtensiveTravel:true}).accepted,true);
 });
+test('tech at your bases and remote tech stay, jobs that make you live elsewhere do not',()=>{
+ const bases=['Azle, TX','Rock Springs, WY','Casper, WY'];
+ const rules={bases};
+ const local=match('Fiber Technician','Fusion splicing, OTDR, cabling and telecom. No security clearance required.',{location:'Casper, WY'});
+ assert.equal(M.intake(local,rules).accepted,true);
+ assert.equal(M.placement(local,bases).primary,'Casper, WY');
+ assert.equal(M.placement(local,bases).kind,'local');
+ const dallas=match('Fiber Technician','Fusion splicing, OTDR, cabling and telecom.',{location:'Dallas, TX'});
+ assert.equal(M.intake(dallas,rules).accepted,false);
+ assert.equal(M.placement(dallas,bases).labels.length,0);
+ const remote=match('Network Technician','Remote. Network installation, Linux diagnostics, and cabling.',{location:'Remote, United States',remote:true});
+ assert.equal(M.intake(remote,rules).accepted,true);
+ assert.deepEqual(M.placement(remote,bases).labels,bases);
+ const software=match('Software Developer','JavaScript Node.js Python Linux APIs SQL.',{location:'Azle, TX'});
+ assert.equal(M.intake(software,rules).accepted,true);
+ const move=match('Fiber Technician','100% travel. Must reside in Dallas, TX. Fusion splicing, OTDR, cabling and telecom.',{location:'Dallas, TX'});
+ assert.equal(M.intake(move,rules).accepted,false);
+ const travel=match('Traveling Fiber Technician','100% travel. Fusion splicing, OTDR, cabling and telecom.',{location:'United States'});
+ assert.equal(M.placement(travel,bases).kind,'travel');
+ assert.deepEqual(M.placement(travel,bases).labels,bases);
+});
 test('government and FAA filters are user-controlled, independent and reversible',()=>{
  const gov=match('Electronics Technician','100% travel. FAA infrastructure contract for a government agency. Fiber splicing, OTDR testing, cabling and telecom communications. No security clearance required.');
  assert.equal(M.intake(gov,{sector:'all',excludeFAA:false}).accepted,true);assert.equal(M.intake(gov,{sector:'private'}).accepted,false);assert.equal(M.intake(gov,{excludeFAA:true}).accepted,false);assert.equal(M.intake(gov,{sector:'all',excludeFAA:false}).accepted,true);
