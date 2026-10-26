@@ -83,6 +83,34 @@
   }
   async function saveBusinessLead(id,changes){const lead=data.businessLeads?.[id];if(!lead)throw Error('Contract opportunity not found.');lead.pipeline={...(lead.pipeline||{}),...changes,updatedAt:Date.now()};await save();emit();}
   async function importBusinessLead(raw){const lead=normalize(raw,{id:'manual',name:raw.source||'Manual contract import',kind:'manual'});if(!lead)throw Error('A job title and valid listing URL are required.');data.businessLeads||={};const old=Object.values(data.businessLeads).find(j=>canonical(j.url)===canonical(lead.url));if(old)return old;lead.pipeline={stage:'new',note:'',proposal:''};data.businessLeads[lead.id]=lead;await save();emit();return lead;}
+  function seedBusinessProfile(){
+    const current=data.businessProfile&&typeof data.businessProfile==='object'&&!Array.isArray(data.businessProfile)?data.businessProfile:{};
+    data.businessProfile=current;
+    // A blank unsaved profile gets the Roddy starter. A saved profile, including a cleared name, stays as the user left it.
+    if(String(current.name||'').trim()||current.updatedAt)return;
+    const starter={
+      name:'Roddy Technical Services',
+      contactName:'James Weeks',
+      email:'jamesmweeksjr@gmail.com',
+      phone:'(307) 212-2648',
+      website:'https://lionsarmor.github.io/jobbies/roddy.html',
+      location:'Available from Azle, TX; Rock Springs, WY; and Casper, WY',
+      services:'Fiber installation and fusion splicing for single-mode and ribbon fiber. OTDR and optical power meter testing, fault isolation, and restoration. Copper termination, structured cabling, racks, patch panels, and MTP/MPO. Communications equipment installation, integration, acceptance testing, and live cutover support. Data-center backbone and distribution fiber. Long-haul and metro fiber maintenance and emergency splicing.',
+      capabilities:'Jan 2026–Oct 2026 contract assignments: FAA communications installation, testing, and live cutovers on Parsons projects through ESPO Engineering Corporation. Hyperscale data-center fiber splicing and OTDR testing through AFL/Oracle. Sep 2024–Jan 2026: long-haul and metro fiber maintenance, emergency splicing, and OTDR diagnostics at Cogent Communications. 2010–2018: CAT5/6, fiber, coax, MDF/IDF, racks, and enclosures.',
+      serviceArea:'Nationwide travel from Azle, TX; Rock Springs, WY; and Casper, WY. These are work bases, not a street address or a headquarters.',
+      availability:'Project travel. Schedule is agreed per scope.',
+      hourlyRate:'',
+      minimumProject:'',
+      insurance:'',
+      registrations:'',
+      arrangements:['1099','c2c']
+    };
+    for(const [key,value] of Object.entries(starter)){
+      const existing=current[key];
+      const filled=Array.isArray(existing)?existing.length>0:String(existing??'').trim()!=='';
+      if(!filled)current[key]=value;
+    }
+  }
   async function setBusinessProfile(input){
     const current=data.businessProfile||{},next={...current};
     for(const key of ['name','contactName','email','phone','website','location','services','capabilities','serviceArea','hourlyRate','minimumProject','availability','insurance','registrations'])if(key in input)next[key]=String(input[key]||'').trim().slice(0,4000);
@@ -203,7 +231,7 @@
     }
     try{const response=await fetch('job-sources.json',{cache:'no-store'});if(response.ok){const manifest=await response.json();if(Array.isArray(manifest.sources)){data.managedSources=manifest.sources;if(data.sourceManifestVersion!==manifest.version){data.sourceManifestVersion=manifest.version;data.lastPull=null;}}}}catch{}
     data.settings ||= {autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12};
-    data.businessProfile||={};data.businessLeads||={};data.settings.discoveryRules||=structuredClone(M.defaultRules);data.settings.businessDiscoveryRules||={...structuredClone(M.defaultRules),minimumTravel:0};data.settings.arrangements||=['w2','1099','c2c'];data.answers.work_arrangements||=structuredClone(defaultAnswers.work_arrangements);
+    data.businessProfile||={};seedBusinessProfile();data.businessLeads||={};data.settings.discoveryRules||=structuredClone(M.defaultRules);data.settings.businessDiscoveryRules||={...structuredClone(M.defaultRules),minimumTravel:0};data.settings.arrangements||=['w2','1099','c2c'];data.answers.work_arrangements||=structuredClone(defaultAnswers.work_arrangements);
     applyVisibility();
     migrateAnswerKnowledge();
     refreshMatches();promotePool();refreshMatches();
@@ -631,7 +659,7 @@
     const restored=decode(bundle.data);
     if(data.managedSources?.length){const changed=restored.sourceManifestVersion!==data.sourceManifestVersion;restored.managedSources=structuredClone(data.managedSources);restored.sourceManifestVersion=data.sourceManifestVersion;if(changed)restored.lastPull=null;}
     if(!Array.isArray(restored.profile.skills)||!Array.isArray(restored.profile.bases)||!restored.profile.resumes)throw new Error('The backup profile is incomplete.');
-    data=restored;data.jobPool||={};data.businessPool||={};applyVisibility();data.businessProfile||={};data.businessLeads||={};data.settings||={autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12};
+    data=restored;data.jobPool||={};data.businessPool||={};applyVisibility();data.businessProfile||={};seedBusinessProfile();data.businessLeads||={};data.settings||={autoPull:true,intervalHours:6,autoPrepare:true,minimumFit:55,maximumPrepare:12};
     data.settings.codexAutoDraft??=true;
     for(const [id,d] of Object.entries(data.drafts))if(d.stage!=='submitted')reconcileDraft(id);
     refreshMatches();await save({replace:true});emit();return data;

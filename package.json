@@ -10,16 +10,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lionsarmor/AMERICA.git"
+    "url": "git+https://github.com/lionsarmor/jobbies.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "bugs": {
-    "url": "https://github.com/lionsarmor/AMERICA/issues"
+    "url": "https://github.com/lionsarmor/jobbies/issues"
   },
-  "homepage": "https://github.com/lionsarmor/AMERICA#readme",
+  "homepage": "https://lionsarmor.github.io/jobbies/",
   "dependencies": {
     "@openai/codex-sdk": "0.163.0",
     "playwright": "^1.64.1"

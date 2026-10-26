@@ -2,7 +2,9 @@
 
 A personal job-search workspace for US remote work and domestic or international travel contracts. Discover openings, rank pay and fit, answer repeated questions once, and review before a single **Yes, apply** starts the employer application.
 
-**Live site:** https://lionsarmor.github.io/AMERICA/
+**Live site:** https://lionsarmor.github.io/jobbies/
+
+**Roddy Technical Services:** https://lionsarmor.github.io/jobbies/roddy.html
 
 The interface follows Orbit’s charcoal and copper styling, with a shortlist, collapsible filters, and labeled navigation on phones. Existing browser storage and backup formats remain compatible.
 

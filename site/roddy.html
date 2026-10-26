@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e1115">
+  <meta name="description" content="Roddy Technical Services. James Weeks installs, splices, and tests fiber and communications systems, and travels nationwide for 1099 and corp-to-corp project work.">
+  <title>Roddy Technical Services</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0e1115; --surface:#171c22; --ink:#f3f1ec; --muted:#a7b0ba; --line:#ffffff18; --copper:#d4a06c; --copper-ink:#201509; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 "Segoe UI", system-ui, sans-serif; }
+    a { color: var(--copper); }
+    a:focus-visible, button:focus-visible { outline: 3px solid var(--copper); outline-offset: 3px; }
+    .wrap { width: min(980px, calc(100% - 32px)); margin: 0 auto; }
+    header { border-bottom: 1px solid var(--line); }
+    .top { display: flex; justify-content: space-between; gap: 24px; align-items: end; padding: 28px 0 22px; }
+    h1 { margin: 0; font-size: clamp(36px, 6vw, 64px); line-height: .95; letter-spacing: -1.5px; font-weight: 760; }
+    h1 .mark { display: block; margin: 0 0 8px; font-size: 13px; letter-spacing: .22em; font-weight: 750; color: var(--copper); text-transform: uppercase; }
+    .contact { margin: 0; color: var(--muted); font-size: 15px; text-align: right; }
+    .contact a { color: inherit; }
+    .hero { padding: 42px 0 10px; display: grid; grid-template-columns: 1.4fr .8fr; gap: 28px; align-items: start; }
+    .hero p { margin: 0; font-size: 19px; max-width: 40rem; }
+    .note { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 8px; }
+    .note strong { display: block; color: var(--copper); font-size: 12px; letter-spacing: .14em; margin-bottom: 8px; }
+    .note p { margin: 0 0 12px; color: var(--muted); font-size: 15px; }
+    h2 { margin: 42px 0 14px; font-size: 13px; letter-spacing: .18em; font-weight: 750; color: var(--copper); }
+    .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; padding: 0; list-style: none; }
+    .cards li { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px 16px 14px; }
+    .cards strong { display: block; margin-bottom: 4px; }
+    .cards span { color: var(--muted); font-size: 15px; }
+    article { border-top: 1px solid var(--line); padding: 18px 0; }
+    article h3 { margin: 0 0 4px; font-size: 20px; letter-spacing: -.3px; }
+    article .when { margin: 0 0 8px; color: var(--copper); font-size: 14px; }
+    article ul { margin: 0; padding-left: 18px; color: var(--muted); }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 28px; }
+    .button { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 16px; border-radius: 10px; background: var(--copper); color: var(--copper-ink); text-decoration: none; font-weight: 700; }
+    .button.quiet { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    footer { border-top: 1px solid var(--line); padding: 22px 0 40px; color: var(--muted); font-size: 14px; }
+    footer p { margin: 0 0 8px; }
+    @media (max-width: 740px) {
+      .top, .hero, .cards { display: block; }
+      .contact { text-align: left; margin-top: 16px; }
+      .cards li { margin-top: 12px; }
+      h1 { font-size: 40px; }
+    }
+    @media print {
+      :root { color-scheme: light; }
+      body { background: #fff; color: #172c46; font-size: 12pt; }
+      a { color: #172c46; }
+      .note, .cards li { background: #fff; border-color: #ccc; }
+      .mark, h2, article .when { color: #8c4b28; }
+      .button { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap top">
+      <div>
+        <h1><span class="mark">Roddy</span> Technical Services</h1>
+      </div>
+      <p class="contact">James Weeks<br><a href="tel:+13072122648">(307) 212-2648</a><br><a href="mailto:jamesmweeksjr@gmail.com">jamesmweeksjr@gmail.com</a></p>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="hero">
+      <p>Fiber, communications, and cabling. James Weeks installs, splices, tests, and supports live cutovers, and he travels for the work.</p>
+      <aside class="note">
+        <strong>A ONE-PERSON SHOP</strong>
+        <p>1099 and corp-to-corp projects. Nationwide travel from Azle, Texas; Rock Springs, Wyoming; and Casper, Wyoming. Those are work bases, not a street address and not a headquarters.</p>
+        <p>This page does not claim a crew, a bond, an insurance limit, a SAM.gov registration, or a certified data-destruction program.</p>
+      </aside>
+    </section>
+
+    <h2>SERVICES</h2>
+    <ul class="cards">
+      <li><strong>Fiber</strong><span>Installation and fusion splicing for single-mode and ribbon fiber.</span></li>
+      <li><strong>Testing</strong><span>OTDR and optical power meter testing, fault isolation, and restoration.</span></li>
+      <li><strong>Copper and racks</strong><span>Termination, structured cabling, patch panels, MTP/MPO, and MDF/IDF buildout.</span></li>
+      <li><strong>Cutover</strong><span>Communications equipment installation, integration, acceptance testing, and live cutover support.</span></li>
+      <li><strong>Data-center fiber</strong><span>Backbone and distribution fiber in structured cabling and patch panels.</span></li>
+      <li><strong>Long-haul and metro</strong><span>Fiber maintenance, emergency splicing, and service restoration.</span></li>
+    </ul>
+
+    <h2>FIELD EXPERIENCE</h2>
+    <article>
+      <h3>Communications and data-center fiber</h3>
+      <p class="when">Jan 2026 – Oct 2026 · Contract assignments</p>
+      <ul>
+        <li>Supported installation, testing, and live cutover of FAA communications infrastructure on Parsons projects through ESPO Engineering Corporation.</li>
+        <li>Spliced single-mode and ribbon fiber and tested links with OTDR and optical power meters for hyperscale data-center work through AFL / Oracle.</li>
+        <li>Installed racks and communications hardware, and terminated copper and fiber from engineering drawings.</li>
+      </ul>
+    </article>
+    <article>
+      <h3>Network and systems engineer</h3>
+      <p class="when">Sep 2024 – Jan 2026 · Cogent Communications</p>
+      <ul>
+        <li>Maintained long-haul and metro fiber, including route inspections, regeneration sites, emergency splicing, and fault isolation.</li>
+        <li>Built Python tools that read OTDR traces, find optical events, and estimate fault distance.</li>
+      </ul>
+    </article>
+    <article>
+      <h3>Infrastructure installation</h3>
+      <p class="when">2010 – 2018</p>
+      <ul>
+        <li>Installed, terminated, tested, and documented CAT5/6, fiber, and coax.</li>
+        <li>Built and organized MDF/IDF rooms, equipment racks, patch panels, and enclosures.</li>
+      </ul>
+    </article>
+
+    <h2>CAPABILITY RESUME</h2>
+    <p>The download is the same experience, on one page, for a bid package. Rack or cabling removal that is part of a cutover can be discussed from the installation work above. Certified IT asset disposition is not a service this shop claims.</p>
+    <div class="actions">
+      <a class="button" href="resumes/Roddy_Technical_Services_Capability.docx" download>Download the capability resume</a>
+      <a class="button quiet" href="contracts.html">Open the Jobbies business workspace</a>
+    </div>
+  </main>
+  <footer>
+    <div class="wrap">
+      <p>Education: Information Technology coursework at Bristol Community College, Fall River, Massachusetts. No degree is claimed.</p>
+      <p>Software portfolio, separate from this field shop: <a href="https://roddy.world">roddy.world</a> · <a href="https://www.linkedin.com/in/jamesmweeksjr">LinkedIn</a> · <a href="https://github.com/lionsarmor">GitHub</a></p>
+    </div>
+  </footer>
+</body>
+</html>

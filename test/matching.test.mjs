@@ -96,6 +96,32 @@ test('tech at your bases and remote tech stay, jobs that make you live elsewhere
  assert.equal(M.placement(travel,bases).kind,'travel');
  assert.deepEqual(M.placement(travel,bases).labels,bases);
 });
+test('an ask can name the work, and a small shop is tiered from the listing',()=>{
+  const bases=profile.bases;
+  const brief=M.askBrief('100% travel fiber technician',bases);
+  assert.equal(brief.travel100,true);assert.ok(brief.families.includes('fiber'));
+  assert.equal(M.askBrief('Tech work in Casper, WY',bases).place,'Casper, WY');
+  const fiber=match('Traveling Fiber Technician','100% travel. W-2 employment. Fusion splicing, OTDR, cabling and telecom. No security clearance required.');
+  const remote=match('Remote Software Engineer','Fully remote software. JavaScript, Node.js, Linux.',{remote:true,location:'Remote - United States'});
+  assert.equal(M.askScore(remote,brief),-1);assert.ok(M.askScore(fiber,brief)>0);
+  const c2c=match('Fiber Installation Subcontractor','Corp-to-corp. Fusion splicing, OTDR, cabling, and telecom site teardown. Insurance certificate required. No security clearance required.');
+  const shop={services:'Fiber splicing and site teardown',insurance:''};
+  const good=M.shopTier(c2c,profile,shop);
+  assert.equal(good.tier,'good');assert.ok(good.needs.includes('C2C'));assert.ok(good.missing.some(item=>/Insurance/.test(item)));
+  assert.equal(M.shopTier(fiber,profile,shop).tier,'possible');
+  const itad=match('Data Center Decommission Technician','Certified ITAD and NAID certification required. Rack pull and copper removal.');
+  assert.equal(M.shopTier(itad,profile,shop).tier,'later');
+  const bonded=match('Fiber Subcontractor','C2C. Must be bonded. Fusion splicing, OTDR, cabling and telecom.');
+  assert.equal(M.shopTier(bonded,profile,shop).tier,'later');
+  const away=match('Fiber Technician','Must reside in Dallas, TX. Fusion splicing, OTDR, cabling and telecom.',{location:'Dallas, TX'});
+  assert.equal(M.shopTier(away,profile,shop).tier,'later');
+  const cleared=match('Fiber Technician','Active Secret clearance required. Fusion splicing, OTDR, cabling and telecom.');
+  assert.equal(M.shopTier(cleared,profile,shop).tier,'later');
+  const decom=M.askBrief('Data center decommission and copper removal',bases);
+  const pull=match('Legacy removal technician','Rack pull, copper removal, and fiber teardown. C2C. No security clearance required.');
+  assert.ok(M.askScore(pull,decom)>0);
+  assert.equal(M.askScore(remote,decom),-1);
+});
 test('government and FAA filters are user-controlled, independent and reversible',()=>{
  const gov=match('Electronics Technician','100% travel. FAA infrastructure contract for a government agency. Fiber splicing, OTDR testing, cabling and telecom communications. No security clearance required.');
  assert.equal(M.intake(gov,{sector:'all',excludeFAA:false}).accepted,true);assert.equal(M.intake(gov,{sector:'private'}).accepted,false);assert.equal(M.intake(gov,{excludeFAA:true}).accepted,false);assert.equal(M.intake(gov,{sector:'all',excludeFAA:false}).accepted,true);

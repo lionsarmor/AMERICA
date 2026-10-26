@@ -176,5 +176,76 @@
     for(const [id,name] of [['fiber_skill','Fiber & splicing'],['otdr','OTDR'],['cabling','Cabling'],['linux','Linux'],['python','Python'],['javascript','JavaScript'],['node','Node.js']])if(job.matchEvidence?.includes(name))result.push(id);
     return [...new Set(result)];
   }
-  globalThis.JobbiesMatching={tagDefinitions,tags,categories,classify,rank,intake,defaultRules,parseBases,baseFit,placement};
+  const askStop=new Set(['the','and','for','with','job','jobs','want','need','from','that','this','your','you','work','role','roles','looking','find','show','some','any','can','get','into','about','have','just','like','please','company','business','service','services','contract','contracts','small','ask']);
+  const askFamilies={fiber:/\bfiber|\bfibre|\bsplic|\btelecom|\boutside plant|\bosp\b|\bcabl/,data_center:/data\s?center|decommission|rack pull|legacy removal|site teardown|copper removal/,network:/\bnetwork\b|\binfrastructure\b/,electronics:/\belectronic|\bcutover\b|\bcommunications\b/,software:/\bsoftware\b|\bdeveloper\b|\bprogrammer\b|\bfull.?stack\b/,field:/\bfield\b|\binstall|\blineman|\blow voltage|\btechnician\b/};
+  function askBrief(text,bases=[]){
+    const lower=norm(text);
+    const families=[];
+    const add=(id,re)=>{if(re.test(lower)&&!families.includes(id))families.push(id);};
+    for(const [id,re] of Object.entries(askFamilies))add(id,re);
+    const travel100=/100\s*(?:%|percent)|full(?:y|[- ]time)? travel/.test(lower);
+    const remote=/\bremote\b/.test(lower)&&!/\b(?:not|no|non)[- ]?remote\b/.test(lower);
+    const contract=/\b(?:c2c|1099|subcontract|rfp|rfq|proposal|contract(?:s|ing)?|my (?:company|shop|business)|small business)\b/.test(lower);
+    const place=(Array.isArray(bases)?bases:[]).find(label=>word(lower,norm(String(label).split(',')[0]||'')))||'';
+    const words=lower.split(/[^a-z0-9+#.]+/).filter(word=>word.length>2&&!askStop.has(word)&&!['remote','travel','percent'].includes(word));
+    return {families,travel100,remote,contract,place,words};
+  }
+  function shopEvidence(profile,business){return norm([...(profile?.skills||[]),...Object.values(profile?.resumeEvidence||{}).flat(),...(profile?.experience||[]).map(row=>`${row.role||''} ${(row.evidence_statements||[]).join(' ')}`),business?.services||'',business?.capabilities||'',business?.registrations||''].join('\n'));}
+  function listingNeeds(job){
+    const text=`${job.title||''}\n${job.description||''}`,needs=[];
+    if(job.clearance==='existing')needs.push('Active security clearance');
+    else if(job.clearance==='sponsor')needs.push('Clearance sponsorship is mentioned');
+    if(job.arrangements?.includes('c2c'))needs.push('C2C');
+    if(job.arrangements?.includes('1099'))needs.push('1099');
+    if(job.business&&!job.arrangements?.some(item=>item==='c2c'||item==='1099'))needs.push('Subcontract, RFP, or project bid');
+    const explicit=!!(job.business||job.arrangements?.includes('c2c')||job.arrangements?.includes('1099'));
+    if(!explicit)needs.push('Posted as employment');
+    if(/performance bond|surety|must be bonded|\bbonded\b/i.test(text))needs.push('Bonding');
+    if(/\bNAID\b|e-Stewards|\bR2\b|certified ITAD|certified data destruction/i.test(text))needs.push('Certified data destruction');
+    if(/general liability|workers'?\s*comp|proof of insurance|insurance certificate/i.test(text))needs.push('Insurance certificate');
+    if(/\bUEI\b|SAM\.gov|\bDUNS\b/i.test(text))needs.push('SAM.gov registration');
+    const crew=text.match(/\b(\d{1,3})\+?\s*(?:person|people|techs|technicians|crew|employees)\b/i);
+    if(crew&&Number(crew[1])>=4)needs.push('Crew of '+crew[1]);
+    const years=text.match(/\b(\d{1,2})\+?\s*years?\b/i);
+    if(years)needs.push(years[1]+'+ years stated');
+    return [...new Set(needs)].slice(0,6);
+  }
+  function shopTier(job,profile={},business={}){
+    const text=`${job.title||''}\n${job.description||''}`,evidence=shopEvidence(profile,business),needs=listingNeeds(job),have=(job.matchEvidence||[]).slice(0,5),blockers=[];
+    if(job.clearance==='existing')blockers.push('Active clearance is required');
+    if(job.seniorityReview)blockers.push('Senior or leadership title');
+    if(/performance bond|surety|must be bonded/i.test(text))blockers.push('Bonding is required');
+    if(/\bNAID\b|e-Stewards|\bR2\b|certified ITAD|certified data destruction/i.test(text)&&!/\bNAID\b|e-Stewards|\bR2\b|\bITAD\b/i.test(evidence))blockers.push('Certified data destruction is required');
+    if(/\bUEI\b|SAM\.gov/i.test(text)&&!/\bUEI\b|\bSAM\b/i.test(evidence))blockers.push('SAM.gov registration is not on your business profile');
+    if(requiresLivingAway(job,profile.bases||[]))blockers.push('The listing says you must live away from your bases');
+    const crew=text.match(/\b(\d{1,3})\+?\s*(?:person|people|techs|technicians|crew|employees)\b/i);
+    if(crew&&Number(crew[1])>=8)blockers.push('The listing asks for a crew of '+crew[1]);
+    const families=job.families||[],supported=families.filter(id=>familyRules[id]&&familyRules[id].test(evidence));
+    const explicit=!!(job.business||job.arrangements?.includes('c2c')||job.arrangements?.includes('1099'));
+    let tier='possible',label='Possible — compare the scope with your shop';
+    if(blockers.length||(families.length&&!supported.length)){tier='later';label=blockers.length?'Not for this shop yet':'Outside the skills on your resumes';}
+    else if(explicit&&supported.length){tier='good';label='Good for your shop';}
+    else if(supported.length){tier='possible';label='Same kind of work, posted as a job';}
+    if(tier==='good'&&crew&&Number(crew[1])>=4){tier='possible';label='Possible — the listing wants more than a one-person crew';}
+    const missing=[...blockers];
+    if(needs.includes('Insurance certificate')&&!business.insurance)missing.push('Insurance is not on your business profile');
+    if(explicit&&!(business.services||'').trim())missing.push('Add your services on the business profile before a proposal');
+    return {tier,label,needs,have,missing:[...new Set(missing)].slice(0,5)};
+  }
+  function askScore(job,brief){
+    const hay=norm(`${job.title} ${job.company} ${job.location} ${job.description||''}`);
+    if(brief.families?.length){
+      const familyHit=brief.families.some(id=>(job.families||[]).includes(id)||(askFamilies[id]&&askFamilies[id].test(hay))||(familyRules[id]&&familyRules[id].test(hay)));
+      if(!familyHit)return -1;
+    }
+    const hits=(brief.words||[]).reduce((count,word)=>count+(hay.includes(word)?1:0),0);
+    if(!brief.families?.length&&brief.words?.length&&!hits)return -1;
+    let score=hits*3+(brief.families?.length?12:0)+Math.round((job.fit||0)/20);
+    if(brief.travel100&&(job.travel100||job.travelExtensive))score+=8;
+    if(brief.remote&&job.remoteExplicit&&!job.hybrid)score+=8;
+    if(brief.contract&&(job.business||job.arrangements?.some(item=>item==='c2c'||item==='1099')))score+=6;
+    if(brief.place&&job.placement?.kind==='local'&&job.placement.primary===brief.place)score+=8;
+    return score;
+  }
+  globalThis.JobbiesMatching={tagDefinitions,tags,categories,classify,rank,intake,defaultRules,parseBases,baseFit,placement,askBrief,listingNeeds,shopTier,askScore};
 })();

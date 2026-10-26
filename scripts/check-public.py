@@ -7,10 +7,10 @@ from urllib.parse import urlparse
 root = Path(__file__).resolve().parents[1]
 site = root / "site"
 seed = json.loads((site / "profile-seed.json").read_text())
-expected = {'James_Weeks_Technician_Resume.docx': 'fb8de06897fcbcc1dc4a384e22818bcd2341351543fcc3b23fa397045e316b62', 'James_Weeks_Software_Resume_Updated.docx': 'eaae0b5801ff7f7ddb76ce4d066045cc42efaf8754ac00f691c1de0681eb4429'}
-allowed = {"index.html", "contracts.html", "styles.css", "app.js", "engine.js", "workbench.js", "agent.js", "question-library.js", "companion.js", "automation.js", "employer-policy.js", "answer-policy.js", "matching.js", "cover-letter.js", "travel-feed.json", "job-sources.json", "profile-seed.json", ".nojekyll", "404.html", "resumes"}
+expected = {'James_Weeks_Technician_Resume.docx': 'fb8de06897fcbcc1dc4a384e22818bcd2341351543fcc3b23fa397045e316b62', 'James_Weeks_Software_Resume_Updated.docx': 'eaae0b5801ff7f7ddb76ce4d066045cc42efaf8754ac00f691c1de0681eb4429', 'Roddy_Technical_Services_Capability.docx': 'e6d80dd1b7da0763c7685bbe04a126ffa293176c9b6734d56f3700c86840bd44'}
+allowed = {"index.html", "contracts.html", "roddy.html", "styles.css", "app.js", "engine.js", "workbench.js", "agent.js", "question-library.js", "companion.js", "automation.js", "employer-policy.js", "answer-policy.js", "matching.js", "cover-letter.js", "travel-feed.json", "job-sources.json", "profile-seed.json", ".nojekyll", "404.html", "resumes"}
 assert all(p.name in allowed and not p.is_symlink() for p in site.iterdir()), "Unexpected public artifact"
-assert set(p.name for p in (site / "resumes").iterdir()) == set(expected), "Only the two requested originals may be hosted"
+assert set(p.name for p in (site / "resumes").iterdir()) == set(expected), "Only the two personal resumes and the Roddy capability resume may be hosted"
 for filename, digest in expected.items():
     path = site / "resumes" / filename
     assert path.is_file() and not path.is_symlink(), "Resume must be an ordinary file"
@@ -20,7 +20,7 @@ for record in seed["resumes"].values():
     assert record["name"] in expected
     assert record["url"] == "resumes/" + record["name"]
 assert not any(k in seed for k in ("answers", "applications", "drafts", "wizard", "archived")), "Browser records must not be bundled"
-print("Public artifact verified: both requested resume originals and matching profile; no browser records or private workspace files.")
+print("Public artifact verified: personal resumes, Roddy capability resume, and matching profile; no browser records or private workspace files.")
 
 feed = json.loads((site / "travel-feed.json").read_text())
 assert set(feed) == {"generatedAt", "source", "query", "sources", "jobs"}, "Unexpected public feed metadata"
